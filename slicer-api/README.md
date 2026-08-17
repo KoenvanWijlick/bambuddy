@@ -163,6 +163,18 @@ exist you would silently switch between them and back.
 
 ## Troubleshooting
 
+- **`error from registry: denied` while pulling `ghcr.io/maziggy/...`** —
+  use the Docker Hub mirror with the included Compose override:
+
+  ```bash
+  docker compose \
+    -f docker-compose.yml \
+    -f docker-compose.dockerhub.yml \
+    --profile bambu up -d
+  ```
+
+  The same `SIDECAR_TAG`, `ORCA_API_PORT`, and `BAMBU_API_PORT` settings
+  still apply. Omit `--profile bambu` when running OrcaSlicer only.
 - **`address already in use` on port 3000 or 3002** — Bambuddy's
   virtual-printer feature owns those. Don't change `ORCA_API_PORT` to
   3000 or 3002.
