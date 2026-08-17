@@ -1,0 +1,6 @@
+services:
+  orca-slicer-api:
+    image: docker.io/maziggy/orca-slicer-api:${SIDECAR_TAG:-latest}
+
+  bambu-studio-api:
+    image: docker.io/maziggy/bambu-studio-api:${SIDECAR_TAG:-latest}
