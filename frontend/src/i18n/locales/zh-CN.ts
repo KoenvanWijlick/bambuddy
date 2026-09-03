@@ -1,6 +1,7 @@
 export default {
   // Navigation
   nav: {
+    print: '打印',
     printers: '打印机',
     archives: '归档',
     queue: '打印队列',
@@ -30,6 +31,93 @@ export default {
     logout: '退出登录',
     installApp: '安装应用',
     installAppSuccess: 'Bambuddy 已安装',
+  },
+
+  // One-click print flow (docs/auto-print-pipeline-spec.md)
+  print: {
+    title: '开始新打印',
+    subtitle: '上传文件、选择耗材、调整设置并开始打印。',
+    dropzone: {
+      title: '选择文件或拖放到此处',
+      supports: '支持 .gcode, .3mf, .stl, .obj, .amf',
+      chooseFile: '选择文件',
+      noFileSelected: '未选择文件',
+    },
+    filament: {
+      title: '耗材',
+      subtitle: '显示您打印机中当前加载的耗材，而非通用目录。',
+      typeLabel: '类型',
+      colorLabel: '颜色',
+      noneLoaded: '没有任何打印机加载了耗材',
+      noColors: '未加载颜色',
+    },
+    options: {
+      title: '打印选项',
+      quality: '质量',
+      layerHeight: '层高',
+    },
+    advanced: {
+      title: '高级设置',
+      autoOrient: '自动摆正模型',
+      autoArrange: '自动排布在热床上',
+      brim: '内部和外部边缘',
+      brimWidth: '边缘宽度',
+      brimWidthUnit: 'mm',
+      printerOverride: '打印机',
+      printerAuto: '自动选择',
+    },
+    actions: {
+      print: '打印',
+      starting: '启动中…',
+      awaitingReview: '等待您的审核',
+      approve: '批准',
+      approving: '批准中…',
+      discard: '丢弃',
+      discarding: '丢弃中…',
+    },
+    errors: {
+      noFile: '请选择要打印的文件。',
+      noFilament: '请选择耗材类型。',
+      optionsLoadFailed: '无法加载您打印机中已装载的耗材。',
+    },
+    status: {
+      stage: {
+        upload: '上传',
+        analyse: '分析',
+        printer: '打印机',
+        slice: '切片',
+        review: '审核',
+        queued: '排队中',
+      },
+      retry: '重试',
+      failedGeneric: '启动此打印时出现问题。',
+      queuedSuccess: '已加入打印队列。',
+      viewQueue: '查看队列',
+      awaitingApproval: '已切片并准备就绪。目前尚未加入打印队列——请查看下方的 G-code，然后批准以将其加入打印队列，或丢弃以取消。',
+      notQueuedYet: '尚未加入队列——请在下方查看',
+      approvalActionFailed: '无法完成该操作。请重试。',
+      discarded: '已丢弃。未加入打印队列。',
+      startOver: '开始新打印',
+    },
+    summary: {
+      title: '打印摘要',
+      infoTooltip: '在准备打印时会自动填充。',
+      noPreview: '暂无预览',
+      noPreviewAvailable: '此文件没有可用的预览',
+      file: '文件',
+      filament: '耗材',
+      color: '颜色',
+      estimatedTime: '预计打印时间',
+      filamentUsage: '耗材用量',
+      renderingPreview: '正在生成预览…',
+      layerHeight: '层高',
+      printer: '打印机',
+    },
+    printerStatus: {
+      title: '打印机状态',
+      online: '在线',
+      offline: '离线',
+    },
   },
 
   // Common

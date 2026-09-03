@@ -170,6 +170,27 @@ class SliceRequest(BaseModel):
             "process preset unchanged (#1337)."
         ),
     )
+    brim_type: Literal["auto_brim", "outer_only", "inner_only", "outer_and_inner", "no_brim"] | None = Field(
+        default=None,
+        description=(
+            "Override the process preset's `brim_type` for this slice, alongside "
+            "`brim_width` below. Verified against the live BambuStudio sidecar: "
+            "the process profile defaults to 'auto_brim'; 'outer_and_inner' with "
+            "a 5mm width slices cleanly and has real effect (auto-print's test "
+            "part went from 4.43g/1746s to 4.58g/1775s). None ⇒ inherit from the "
+            "process preset unchanged, same convention as `bed_type` above."
+        ),
+    )
+    brim_width: float | None = Field(
+        default=None,
+        ge=0,
+        le=50,
+        description=(
+            "mm. Paired with `brim_type` — both are patched onto the resolved "
+            "process JSON together (see `library.py`'s `_patch_process_brim`). "
+            "None ⇒ inherit from the process preset unchanged."
+        ),
+    )
     auto_orient: bool = Field(
         default=False,
         description=(

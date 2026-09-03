@@ -4353,6 +4353,98 @@ export interface AuthStatus {
   requires_setup: boolean;
 }
 
+// ============ Auto-Print Pipeline (one-click print) ============
+// Mirrors backend/app/schemas/auto_print.py — see
+// docs/auto-print-pipeline-spec.md "Backend contract" / "Frontend contract".
+export type AutoPrintStage =
+  | 'pending'
+  | 'uploading'
+  | 'analysing'
+  | 'printer_selected'
+  | 'slicing'
+  | 'awaiting_approval'
+  | 'queued'
+  | 'discarded'
+  | 'failed';
+
+export interface AutoPrintRequest {
+  filament_type: string;
+  color_hex?: string | null;
+  quality?: string;
+  layer_height?: number | null;
+  printer_id?: number | null;
+  auto_orient?: boolean;
+  auto_arrange?: boolean;
+  /** Inner + outer brim. Defaults to on at 5mm -- see brim_width. */
+  brim?: boolean;
+  brim_width?: number;
+}
+
+export interface AutoPrintStartResponse {
+  id: number;
+  stage: AutoPrintStage;
+}
+
+export interface AutoPrintPresetChoice {
+  printer: string;
+  process: string;
+  filament: string;
+  bed_type: string;
+  /** Short human label, e.g. "Inner + outer, 5 mm" or "Off". */
+  brim: string;
+}
+
+export interface AutoPrintPrinterChoice {
+  id: number;
+  name: string;
+  model: string;
+  nozzle_diameter: number;
+  reason: string;
+}
+
+export interface AutoPrintEstimate {
+  print_time_seconds: number | null;
+  filament_used_g: number | null;
+  filament_used_mm: number | null;
+}
+
+export interface AutoPrintFlow {
+  id: number;
+  stage: AutoPrintStage;
+  stage_detail: string;
+  progress: number;
+  error: string | null;
+  library_file_id: number | null;
+  sliced_library_file_id: number | null;
+  queue_item_id: number | null;
+  printer: AutoPrintPrinterChoice | null;
+  presets: AutoPrintPresetChoice | null;
+  estimate: AutoPrintEstimate;
+  model_preview_url: string | null;
+  gcode_preview_url: string | null;
+}
+
+// GET /auto-print/options — feeds the dropdowns on PrintPage; only what is
+// actually loaded in the fleet's AMS is offered.
+export interface AutoPrintLoadedFilament {
+  filament_type: string;
+  color_hex: string;
+  color_name: string | null;
+  printer_ids: number[];
+  tray_count: number;
+}
+
+export interface AutoPrintQualityTier {
+  tier: string;
+  layer_heights: number[];
+}
+
+export interface AutoPrintOptionsResponse {
+  filaments: AutoPrintLoadedFilament[];
+  quality_tiers: AutoPrintQualityTier[];
+  defaults: { quality: string; layer_height: number };
+}
+
 // API functions
 export const api = {
   // Authentication
@@ -7730,6 +7822,49 @@ export const api = {
     request<{ success: boolean }>(`/local-presets/${id}`, { method: 'DELETE' }),
   refreshBaseProfileCache: () =>
     request<{ refreshed: number; failed: number; total: number }>('/local-presets/base-cache/refresh', { method: 'POST' }),
+
+  // ============ Auto-Print Pipeline (one-click print) ============
+  // See docs/auto-print-pipeline-spec.md "Frontend contract". Multipart
+  // upload bypasses `request()` and builds FormData directly, exactly like
+  // `uploadLibraryFile` above — the browser must set its own boundary.
+  startAutoPrint: async (file: File, body: AutoPrintRequest): Promise<AutoPrintStartResponse> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('filament_type', body.filament_type);
+    if (body.color_hex != null) formData.append('color_hex', body.color_hex);
+    formData.append('quality', body.quality ?? 'Standard');
+    if (body.layer_height != null) formData.append('layer_height', String(body.layer_height));
+    if (body.printer_id != null) formData.append('printer_id', String(body.printer_id));
+    formData.append('auto_orient', String(body.auto_orient ?? true));
+    formData.append('auto_arrange', String(body.auto_arrange ?? true));
+    formData.append('brim', String(body.brim ?? true));
+    formData.append('brim_width', String(body.brim_width ?? 5));
+    const headers: Record<string, string> = {};
+    if (authToken) {
+      headers['Authorization'] = `Bearer ${authToken}`;
+    }
+    const response = await fetch(`${API_BASE}/auto-print/`, {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.detail || `HTTP ${response.status}`);
+    }
+    return response.json();
+  },
+  getAutoPrintFlow: (flowId: number) =>
+    request<AutoPrintFlow>(`/auto-print/${flowId}`),
+  getAutoPrintOptions: () =>
+    request<AutoPrintOptionsResponse>('/auto-print/options'),
+  // Lands the flow on `awaiting_approval` on `queued` (adds the queue item)
+  // or `discarded` (skips queueing) respectively. Only valid from
+  // `awaiting_approval` -- 409 otherwise.
+  approveAutoPrint: (flowId: number) =>
+    request<AutoPrintFlow>(`/auto-print/${flowId}/approve`, { method: 'POST' }),
+  discardAutoPrint: (flowId: number) =>
+    request<AutoPrintFlow>(`/auto-print/${flowId}/discard`, { method: 'POST' }),
 };
 
 // AMS History types

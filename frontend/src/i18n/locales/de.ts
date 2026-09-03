@@ -1,6 +1,7 @@
 export default {
   // Navigation
   nav: {
+    print: 'Drucken',
     printers: 'Drucker',
     archives: 'Archiv',
     queue: 'Druckwarteschlange',
@@ -30,6 +31,93 @@ export default {
     logout: 'Abmelden',
     installApp: 'App installieren',
     installAppSuccess: 'Bambuddy wurde installiert',
+  },
+
+  // One-click print flow (docs/auto-print-pipeline-spec.md)
+  print: {
+    title: 'Neuen Druck starten',
+    subtitle: 'Datei hochladen, Filament wählen, Einstellungen anpassen und den Druck starten.',
+    dropzone: {
+      title: 'Datei auswählen oder hierher ziehen',
+      supports: 'Unterstützt .gcode, .3mf, .stl, .obj, .amf',
+      chooseFile: 'Datei auswählen',
+      noFileSelected: 'Keine Datei ausgewählt',
+    },
+    filament: {
+      title: 'Filament',
+      subtitle: 'Zeigt das Filament, das aktuell in deinen Druckern geladen ist – kein allgemeiner Katalog.',
+      typeLabel: 'Typ',
+      colorLabel: 'Farbe',
+      noneLoaded: 'In keinem Drucker ist Filament geladen',
+      noColors: 'Keine Farben geladen',
+    },
+    options: {
+      title: 'Druckoptionen',
+      quality: 'Qualität',
+      layerHeight: 'Schichthöhe',
+    },
+    advanced: {
+      title: 'Erweiterte Einstellungen',
+      autoOrient: 'Objekte automatisch ausrichten',
+      autoArrange: 'Automatisch auf dem Druckbett anordnen',
+      brim: 'Innerer + äußerer Brim',
+      brimWidth: 'Brimbreite',
+      brimWidthUnit: 'mm',
+      printerOverride: 'Drucker',
+      printerAuto: 'Auto-Auswahl',
+    },
+    actions: {
+      print: 'Drucken',
+      starting: 'Wird gestartet…',
+      awaitingReview: 'Warten auf Ihre Überprüfung',
+      approve: 'Genehmigen',
+      approving: 'Wird genehmigt…',
+      discard: 'Verwerfen',
+      discarding: 'Wird verworfen…',
+    },
+    errors: {
+      noFile: 'Wähle eine Datei zum Drucken aus.',
+      noFilament: 'Wähle einen Filamenttyp aus.',
+      optionsLoadFailed: 'Das in deinen Druckern geladene Filament konnte nicht geladen werden.',
+    },
+    status: {
+      stage: {
+        upload: 'Hochladen',
+        analyse: 'Analysieren',
+        printer: 'Drucker',
+        slice: 'Slicen',
+        review: 'Überprüfen',
+        queued: 'In Warteschlange',
+      },
+      retry: 'Erneut versuchen',
+      failedGeneric: 'Beim Starten dieses Drucks ist etwas schiefgelaufen.',
+      queuedSuccess: 'Zur Druckwarteschlange hinzugefügt.',
+      viewQueue: 'Warteschlange ansehen',
+      awaitingApproval: 'Geslict und bereit. Es wurde noch nichts zur Druckwarteschlange hinzugefügt – überprüfe den G-Code unten und genehmige ihn, um ihn zur Druckwarteschlange hinzuzufügen, oder verwirf ihn, um abzubrechen.',
+      notQueuedYet: 'Noch nicht in der Warteschlange – unten überprüfen',
+      approvalActionFailed: 'Diese Aktion konnte nicht abgeschlossen werden. Versuche es erneut.',
+      discarded: 'Verworfen. Es wurde nichts zur Druckwarteschlange hinzugefügt.',
+      startOver: 'Neuen Druck starten',
+    },
+    summary: {
+      title: 'Druckübersicht',
+      infoTooltip: 'Wird automatisch ausgefüllt, während dein Druck vorbereitet wird.',
+      noPreview: 'Noch keine Vorschau',
+      noPreviewAvailable: 'Für diese Datei ist keine Vorschau verfügbar',
+      file: 'Datei',
+      filament: 'Filament',
+      color: 'Farbe',
+      estimatedTime: 'Geschätzte Druckzeit',
+      filamentUsage: 'Filamentverbrauch',
+      renderingPreview: 'Vorschau wird erstellt…',
+      layerHeight: 'Schichthöhe',
+      printer: 'Drucker',
+    },
+    printerStatus: {
+      title: 'Druckerstatus',
+      online: 'Online',
+      offline: 'Offline',
+    },
   },
 
   // Common

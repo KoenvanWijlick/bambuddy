@@ -1,6 +1,7 @@
 export default {
   // Navigation
   nav: {
+    print: 'Print',
     printers: 'Printers',
     archives: 'Archives',
     queue: 'Print Queue',
@@ -30,6 +31,93 @@ export default {
     logout: 'Logout',
     installApp: 'Install app',
     installAppSuccess: 'Bambuddy was installed',
+  },
+
+  // One-click print flow (docs/auto-print-pipeline-spec.md)
+  print: {
+    title: 'Start a new print',
+    subtitle: 'Upload a file, choose your filament, adjust settings and start printing.',
+    dropzone: {
+      title: 'Choose a file or drag and drop',
+      supports: 'Supports .gcode, .3mf, .stl, .obj, .amf',
+      chooseFile: 'Choose File',
+      noFileSelected: 'No file selected',
+    },
+    filament: {
+      title: 'Filament',
+      subtitle: 'Showing filament currently loaded on your printers, not a general catalogue.',
+      typeLabel: 'Type',
+      colorLabel: 'Color',
+      noneLoaded: 'No filament loaded in any printer',
+      noColors: 'No colors loaded',
+    },
+    options: {
+      title: 'Print Options',
+      quality: 'Quality',
+      layerHeight: 'Layer Height',
+    },
+    advanced: {
+      title: 'Advanced Settings',
+      autoOrient: 'Auto-orient parts',
+      autoArrange: 'Auto-arrange plate',
+      brim: 'Inner + outer brim',
+      brimWidth: 'Brim width',
+      brimWidthUnit: 'mm',
+      printerOverride: 'Printer',
+      printerAuto: 'Auto-select',
+    },
+    actions: {
+      print: 'Print',
+      starting: 'Starting…',
+      awaitingReview: 'Waiting for your review',
+      approve: 'Approve',
+      approving: 'Approving…',
+      discard: 'Discard',
+      discarding: 'Discarding…',
+    },
+    errors: {
+      noFile: 'Choose a file to print.',
+      noFilament: 'Choose a filament type.',
+      optionsLoadFailed: 'Could not load the filament loaded in your printers.',
+    },
+    status: {
+      stage: {
+        upload: 'Upload',
+        analyse: 'Analyse',
+        printer: 'Printer',
+        slice: 'Slice',
+        review: 'Review',
+        queued: 'Queued',
+      },
+      retry: 'Retry',
+      failedGeneric: 'Something went wrong starting this print.',
+      queuedSuccess: 'Added to the print queue.',
+      viewQueue: 'View queue',
+      awaitingApproval: 'Sliced and ready. Nothing has been queued yet — review the G-code below, then approve to add it to the print queue or discard to cancel.',
+      notQueuedYet: 'Not queued yet — review below',
+      approvalActionFailed: 'Could not complete that action. Try again.',
+      discarded: 'Discarded. Nothing was added to the print queue.',
+      startOver: 'Start a new print',
+    },
+    summary: {
+      title: 'Print Summary',
+      infoTooltip: 'Fills in automatically as your print is prepared.',
+      noPreview: 'No preview yet',
+      noPreviewAvailable: 'No preview available for this file',
+      file: 'File',
+      filament: 'Filament',
+      color: 'Color',
+      estimatedTime: 'Estimated Print Time',
+      filamentUsage: 'Filament Usage',
+      renderingPreview: 'Rendering preview…',
+      layerHeight: 'Layer Height',
+      printer: 'Printer',
+    },
+    printerStatus: {
+      title: 'Printer Status',
+      online: 'Online',
+      offline: 'Offline',
+    },
   },
 
   // Common

@@ -3645,6 +3645,45 @@ def _patch_process_bed_type(process_json: str, bed_type: str) -> str:
     return json.dumps(profile)
 
 
+def _patch_process_brim(process_json: str, brim_type: str | None, brim_width: float | None) -> str:
+    """Overwrite ``brim_type``/``brim_width`` in a process-profile JSON before
+    forwarding to the slicer sidecar.
+
+    Mirrors `_patch_process_bed_type` exactly: the slicer CLI reads brim
+    settings from the process profile's own ``brim_type``/``brim_width``
+    fields, so a per-slice brim override (auto-print's default inner+outer
+    5mm brim — see docs/auto-print-pipeline-spec.md Round 2) has to be
+    patched onto the resolved JSON rather than requiring the caller to clone
+    a preset just to change a brim. Returns the original string unchanged
+    when the JSON can't be parsed or isn't a dict — the slicer then runs
+    with whatever the preset originally specified, the same safe fall-back
+    ``_patch_process_bed_type`` uses.
+
+    ``brim_type``/``brim_width`` are patched independently — ``None`` for
+    either leaves that one field inherited from the process preset
+    unchanged. ``brim_width`` is written as a **string** (e.g. ``"5"``, not
+    ``"5.0"``), matching how the process preset itself stores the field
+    (verified against the live sidecar; a JSON number is not what the
+    config deserialiser expects there).
+    """
+    try:
+        profile = json.loads(process_json)
+    except json.JSONDecodeError:
+        logger.warning("Brim override skipped: process profile is not valid JSON")
+        return process_json
+    if not isinstance(profile, dict):
+        return process_json
+    if brim_type is not None:
+        profile["brim_type"] = brim_type
+    if brim_width is not None:
+        # `:g` rather than a plain `str()`: the profile stores whole
+        # millimetres without a trailing ".0" (verified against the live
+        # sidecar as `"5"`, not `"5.0"`), and `str(5.0)` would produce the
+        # latter.
+        profile["brim_width"] = f"{brim_width:g}"
+    return json.dumps(profile)
+
+
 def _source_plate_colours(model_bytes: bytes) -> list[str]:
     """Per-slot colours the source 3MF was designed with, or ``[]``.
 
@@ -3979,6 +4018,14 @@ async def _run_slicer_with_fallback(
     # support filament 1" — the reporter's exact scenario.
     if request.bed_type:
         presets["process"] = _patch_process_bed_type(presets["process"], request.bed_type)
+
+    # Brim override (Round 2 of the auto-print pipeline): patch
+    # brim_type/brim_width onto the resolved process JSON the same way the
+    # bed-type override above does. `None` for both is the common case (no
+    # override requested) and is skipped entirely rather than doing a
+    # pointless parse/re-serialise round trip.
+    if request.brim_type is not None or request.brim_width is not None:
+        presets["process"] = _patch_process_brim(presets["process"], request.brim_type, request.brim_width)
 
     # Slicer routing — pick the sidecar URL by preferred_slicer.
     # The per-install URL setting (Settings UI → Slicer card) wins; an

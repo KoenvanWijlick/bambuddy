@@ -1,6 +1,7 @@
 export default {
   // Navigasyon
   nav: {
+    print: 'Baskı',
     printers: 'Yazıcılar',
     archives: 'Arşivler',
     queue: 'Baskı Kuyruğu',
@@ -30,6 +31,93 @@ export default {
     logout: 'Çıkış',
     installApp: 'Uygulamayı yükle',
     installAppSuccess: 'Bambuddy yüklendi',
+  },
+
+  // Tek tıkla baskı akışı (docs/auto-print-pipeline-spec.md)
+  print: {
+    title: 'Yeni bir baskı başlat',
+    subtitle: 'Bir dosya yükleyin, filamentinizi seçin, ayarları düzenleyin ve baskıyı başlatın.',
+    dropzone: {
+      title: 'Bir dosya seçin veya sürükleyip bırakın',
+      supports: '.gcode, .3mf, .stl, .obj, .amf destekler',
+      chooseFile: 'Dosya Seç',
+      noFileSelected: 'Dosya seçilmedi',
+    },
+    filament: {
+      title: 'Filament',
+      subtitle: 'Genel bir katalog değil, yazıcılarınızda şu anda yüklü olan filamenti gösterir.',
+      typeLabel: 'Tür',
+      colorLabel: 'Renk',
+      noneLoaded: 'Hiçbir yazıcıda filament yüklü değil',
+      noColors: 'Yüklenmiş renk yok',
+    },
+    options: {
+      title: 'Baskı Seçenekleri',
+      quality: 'Kalite',
+      layerHeight: 'Katman Yüksekliği',
+    },
+    advanced: {
+      title: 'Gelişmiş Ayarlar',
+      autoOrient: 'Nesneleri otomatik yönlendir',
+      autoArrange: 'Tablaya otomatik yerleştir',
+      brim: 'İç + dış kenarlık',
+      brimWidth: 'Kenarlık genişliği',
+      brimWidthUnit: 'mm',
+      printerOverride: 'Yazıcı',
+      printerAuto: 'Otomatik seç',
+    },
+    actions: {
+      print: 'Yazdır',
+      starting: 'Başlatılıyor…',
+      awaitingReview: 'İncelemeniz bekleniyor',
+      approve: 'Onayla',
+      approving: 'Onaylanıyor…',
+      discard: 'At',
+      discarding: 'Atılıyor…',
+    },
+    errors: {
+      noFile: 'Yazdırmak için bir dosya seçin.',
+      noFilament: 'Bir filament türü seçin.',
+      optionsLoadFailed: 'Yazıcılarınızda yüklü olan filament yüklenemedi.',
+    },
+    status: {
+      stage: {
+        upload: 'Yükleme',
+        analyse: 'Analiz',
+        printer: 'Yazıcı',
+        slice: 'Dilimle',
+        review: 'İnceleme',
+        queued: 'Kuyrukta',
+      },
+      retry: 'Yeniden dene',
+      failedGeneric: 'Bu baskı başlatılırken bir sorun oluştu.',
+      queuedSuccess: 'Baskı kuyruğuna eklendi.',
+      viewQueue: 'Kuyruğu görüntüle',
+      awaitingApproval: 'Dilimlendi ve hazır. Henüz baskı kuyruğuna hiçbir şey eklenmedi — aşağıdaki G-code\'u inceleyin, ardından baskı kuyruğuna eklemek için onaylayın veya iptal etmek için atın.',
+      notQueuedYet: 'Henüz kuyrukta değil — aşağıdan inceleyin',
+      approvalActionFailed: 'Bu işlem tamamlanamadı. Tekrar deneyin.',
+      discarded: 'Atıldı. Baskı kuyruğuna hiçbir şey eklenmedi.',
+      startOver: 'Yeni bir baskı başlat',
+    },
+    summary: {
+      title: 'Baskı Özeti',
+      infoTooltip: 'Baskınız hazırlanırken otomatik olarak doldurulur.',
+      noPreview: 'Henüz önizleme yok',
+      noPreviewAvailable: 'Bu dosya için önizleme mevcut değil',
+      file: 'Dosya',
+      filament: 'Filament',
+      color: 'Renk',
+      estimatedTime: 'Tahmini Baskı Süresi',
+      filamentUsage: 'Filament Kullanımı',
+      renderingPreview: 'Önizleme oluşturuluyor…',
+      layerHeight: 'Katman Yüksekliği',
+      printer: 'Yazıcı',
+    },
+    printerStatus: {
+      title: 'Yazıcı Durumu',
+      online: 'Çevrimiçi',
+      offline: 'Çevrimdışı',
+    },
   },
 
   // Ortak

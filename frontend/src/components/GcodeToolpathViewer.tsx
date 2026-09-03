@@ -49,6 +49,14 @@ interface GcodeToolpathViewerProps {
    */
   filamentColors?: string[];
   className?: string;
+  /**
+   * Called once, after the toolpath has parsed and the first render is
+   * ready -- i.e. right where `loading` flips to `false` on the success
+   * path. Not called on the error / not-sliced paths. Lets a consumer (see
+   * PrintPage's print summary) hold off on numbers derived from the same
+   * G-code until the preview that visualises them is actually up.
+   */
+  onReady?: () => void;
 }
 
 /**
@@ -113,6 +121,7 @@ export function GcodeToolpathViewer({
   buildVolume = { x: 256, y: 256, z: 256 },
   filamentColors,
   className = '',
+  onReady,
 }: GcodeToolpathViewerProps) {
   const { t } = useTranslation();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -223,6 +232,7 @@ export function GcodeToolpathViewer({
         setParsed(result);
         setLayerRange([0, Math.max(0, result.layers.length - 1)]);
         setLoading(false);
+        onReady?.();
       })
       .catch((err: Error) => {
         if (cancelled) return;
@@ -233,6 +243,10 @@ export function GcodeToolpathViewer({
     return () => {
       cancelled = true;
     };
+    // onReady deliberately excluded: this effect re-fetches on a new
+    // gcodeUrl only, not on every render a consumer passes a fresh callback
+    // identity.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gcodeUrl]);
 
   // --- Scene: created once, never rebuilt ----------------------------------

@@ -1,6 +1,7 @@
 export default {
   // Navigation
   nav: {
+    print: 'Afdrukken',
     printers: 'Printers',
     archives: 'Archieven',
     queue: 'Afdrukwachtrij',
@@ -30,6 +31,93 @@ export default {
     logout: 'Uitloggen',
     installApp: 'App installeren',
     installAppSuccess: 'Bambuddy is geïnstalleerd',
+  },
+
+  // One-click print flow (docs/auto-print-pipeline-spec.md)
+  print: {
+    title: 'Nieuwe afdruk starten',
+    subtitle: 'Upload een bestand, kies je filament, pas de instellingen aan en start het afdrukken.',
+    dropzone: {
+      title: 'Kies een bestand of sleep het hierheen',
+      supports: 'Ondersteunt .gcode, .3mf, .stl, .obj, .amf',
+      chooseFile: 'Bestand kiezen',
+      noFileSelected: 'Geen bestand geselecteerd',
+    },
+    filament: {
+      title: 'Filament',
+      subtitle: 'Toont het filament dat momenteel in je printers is geladen, geen algemene catalogus.',
+      typeLabel: 'Type',
+      colorLabel: 'Kleur',
+      noneLoaded: 'Geen filament geladen in een printer',
+      noColors: 'Geen kleuren geladen',
+    },
+    options: {
+      title: 'Afdrukopties',
+      quality: 'Kwaliteit',
+      layerHeight: 'Laaghoogte',
+    },
+    advanced: {
+      title: 'Geavanceerde instellingen',
+      autoOrient: 'Objecten automatisch oriënteren',
+      autoArrange: 'Automatisch op de plaat rangschikken',
+      brim: 'Binnenste en buitenste brim',
+      brimWidth: 'Brimbreedte',
+      brimWidthUnit: 'mm',
+      printerOverride: 'Printer',
+      printerAuto: 'Automatisch selecteren',
+    },
+    actions: {
+      print: 'Afdrukken',
+      starting: 'Bezig met starten…',
+      awaitingReview: 'Wachten op je beoordeling',
+      approve: 'Goedkeuren',
+      approving: 'Bezig met goedkeuren…',
+      discard: 'Verwijderen',
+      discarding: 'Bezig met verwijderen…',
+    },
+    errors: {
+      noFile: 'Kies een bestand om af te drukken.',
+      noFilament: 'Kies een filamenttype.',
+      optionsLoadFailed: 'Kon het filament dat in je printers is geladen niet ophalen.',
+    },
+    status: {
+      stage: {
+        upload: 'Uploaden',
+        analyse: 'Analyseren',
+        printer: 'Printer',
+        slice: 'Slicen',
+        review: 'Beoordelen',
+        queued: 'In wachtrij',
+      },
+      retry: 'Opnieuw proberen',
+      failedGeneric: 'Er is iets misgegaan bij het starten van deze afdruk.',
+      queuedSuccess: 'Toegevoegd aan de afdrukwachtrij.',
+      viewQueue: 'Wachtrij bekijken',
+      awaitingApproval: 'Gesliced en klaar. Er is nog niets aan de afdrukwachtrij toegevoegd — controleer de G-code hieronder en keur goed om het aan de afdrukwachtrij toe te voegen, of verwijder om te annuleren.',
+      notQueuedYet: 'Nog niet in de wachtrij — hieronder controleren',
+      approvalActionFailed: 'Deze actie kon niet worden voltooid. Probeer het opnieuw.',
+      discarded: 'Verwijderd. Er is niets aan de afdrukwachtrij toegevoegd.',
+      startOver: 'Nieuwe afdruk starten',
+    },
+    summary: {
+      title: 'Afdruksamenvatting',
+      infoTooltip: 'Wordt automatisch ingevuld terwijl je afdruk wordt voorbereid.',
+      noPreview: 'Nog geen voorbeeld',
+      noPreviewAvailable: 'Geen voorbeeld beschikbaar voor dit bestand',
+      file: 'Bestand',
+      filament: 'Filament',
+      color: 'Kleur',
+      estimatedTime: 'Geschatte afdruktijd',
+      filamentUsage: 'Filamentverbruik',
+      renderingPreview: 'Voorbeeld wordt gegenereerd…',
+      layerHeight: 'Laaghoogte',
+      printer: 'Printer',
+    },
+    printerStatus: {
+      title: 'Printerstatus',
+      online: 'Online',
+      offline: 'Offline',
+    },
   },
 
   // Common

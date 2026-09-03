@@ -1,6 +1,7 @@
 export default {
   // Navigation
   nav: {
+    print: '列印',
     printers: '印表機',
     archives: '歸檔',
     queue: '列印佇列',
@@ -30,6 +31,93 @@ export default {
     logout: '登出',
     installApp: '安裝應用程式',
     installAppSuccess: 'Bambuddy 已安裝',
+  },
+
+  // One-click print flow (docs/auto-print-pipeline-spec.md)
+  print: {
+    title: '開始新列印',
+    subtitle: '上傳檔案、選擇耗材、調整設定並開始列印。',
+    dropzone: {
+      title: '選擇檔案或拖放到此處',
+      supports: '支援 .gcode, .3mf, .stl, .obj, .amf',
+      chooseFile: '選擇檔案',
+      noFileSelected: '未選擇檔案',
+    },
+    filament: {
+      title: '耗材',
+      subtitle: '顯示您印表機中目前載入的耗材，而非通用型錄。',
+      typeLabel: '類型',
+      colorLabel: '顏色',
+      noneLoaded: '沒有任何印表機載入耗材',
+      noColors: '未載入顏色',
+    },
+    options: {
+      title: '列印選項',
+      quality: '品質',
+      layerHeight: '層高',
+    },
+    advanced: {
+      title: '進階設定',
+      autoOrient: '自動擺正模型',
+      autoArrange: '自動排列在熱床上',
+      brim: '內部和外部邊緣',
+      brimWidth: '邊緣寬度',
+      brimWidthUnit: 'mm',
+      printerOverride: '印表機',
+      printerAuto: '自動選擇',
+    },
+    actions: {
+      print: '列印',
+      starting: '啟動中…',
+      awaitingReview: '等待您的審核',
+      approve: '核准',
+      approving: '核准中…',
+      discard: '丟棄',
+      discarding: '丟棄中…',
+    },
+    errors: {
+      noFile: '請選擇要列印的檔案。',
+      noFilament: '請選擇耗材類型。',
+      optionsLoadFailed: '無法載入您印表機中已裝載的耗材。',
+    },
+    status: {
+      stage: {
+        upload: '上傳',
+        analyse: '分析',
+        printer: '印表機',
+        slice: '切片',
+        review: '審核',
+        queued: '佇列中',
+      },
+      retry: '重試',
+      failedGeneric: '啟動此列印時發生問題。',
+      queuedSuccess: '已加入列印佇列。',
+      viewQueue: '檢視佇列',
+      awaitingApproval: '已切片並準備就緒。目前尚未加入列印佇列——請查看下方的 G-code，然後核准以將其加入列印佇列，或丟棄以取消。',
+      notQueuedYet: '尚未加入佇列——請在下方查看',
+      approvalActionFailed: '無法完成該操作。請重試。',
+      discarded: '已丟棄。未加入列印佇列。',
+      startOver: '開始新列印',
+    },
+    summary: {
+      title: '列印摘要',
+      infoTooltip: '在準備列印時會自動填入。',
+      noPreview: '尚無預覽',
+      noPreviewAvailable: '此檔案沒有可用的預覽',
+      file: '檔案',
+      filament: '耗材',
+      color: '顏色',
+      estimatedTime: '預計列印時間',
+      filamentUsage: '耗材用量',
+      renderingPreview: '正在產生預覽…',
+      layerHeight: '層高',
+      printer: '印表機',
+    },
+    printerStatus: {
+      title: '印表機狀態',
+      online: '線上',
+      offline: '離線',
+    },
   },
 
   // Common

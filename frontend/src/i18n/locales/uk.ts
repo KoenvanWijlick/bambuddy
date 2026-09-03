@@ -1,6 +1,7 @@
 export default {
   // Navigation
   nav: {
+    print: "Друк",
     printers: "Принтери",
     archives: "Архіви",
     queue: "Черга друку",
@@ -30,6 +31,93 @@ export default {
     logout: "Вийти",
     installApp: "Встановити додаток",
     installAppSuccess: "Bambuddy встановлено",
+  },
+
+  // One-click print flow (docs/auto-print-pipeline-spec.md)
+  print: {
+    title: "Почати новий друк",
+    subtitle: "Завантажте файл, оберіть філамент, налаштуйте параметри та почніть друк.",
+    dropzone: {
+      title: "Оберіть файл або перетягніть сюди",
+      supports: "Підтримує .gcode, .3mf, .stl, .obj, .amf",
+      chooseFile: "Обрати файл",
+      noFileSelected: "Файл не вибрано",
+    },
+    filament: {
+      title: "Філамент",
+      subtitle: "Показує філамент, який зараз завантажено у ваші принтери, а не загальний каталог.",
+      typeLabel: "Тип",
+      colorLabel: "Колір",
+      noneLoaded: "Жоден принтер не має завантаженого філаменту",
+      noColors: "Кольори не завантажено",
+    },
+    options: {
+      title: "Параметри друку",
+      quality: "Якість",
+      layerHeight: "Висота шару",
+    },
+    advanced: {
+      title: "Розширені налаштування",
+      autoOrient: "Автоматично орієнтувати об'єкти",
+      autoArrange: "Автоматично розмістити на столі",
+      brim: "Внутрішня + зовнішня облямівка",
+      brimWidth: "Ширина облямівки",
+      brimWidthUnit: "mm",
+      printerOverride: "Принтер",
+      printerAuto: "Автоматичний вибір",
+    },
+    actions: {
+      print: "Друкувати",
+      starting: "Запускається…",
+      awaitingReview: "Очікування вашої перевірки",
+      approve: "Підтвердити",
+      approving: "Підтверджується…",
+      discard: "Відхилити",
+      discarding: "Відхиляється…",
+    },
+    errors: {
+      noFile: "Оберіть файл для друку.",
+      noFilament: "Оберіть тип філаменту.",
+      optionsLoadFailed: "Не вдалося завантажити філамент, завантажений у ваші принтери.",
+    },
+    status: {
+      stage: {
+        upload: "Вивантаження",
+        analyse: "Аналіз",
+        printer: "Принтер",
+        slice: "Нарізка",
+        review: "Перевірка",
+        queued: "У черзі",
+      },
+      retry: "Повторити",
+      failedGeneric: "Під час запуску цього друку щось пішло не так.",
+      queuedSuccess: "Додано до черги друку.",
+      viewQueue: "Переглянути чергу",
+      awaitingApproval: "Нарізано і готово. Ще нічого не додано до черги друку — перевірте G-код нижче, потім підтвердьте, щоб додати його до черги друку, або відхиліть, щоб скасувати.",
+      notQueuedYet: "Ще не в черзі — перевірте нижче",
+      approvalActionFailed: "Не вдалося виконати цю дію. Спробуйте ще раз.",
+      discarded: "Відхилено. До черги друку нічого не додано.",
+      startOver: "Почати новий друк",
+    },
+    summary: {
+      title: "Підсумок друку",
+      infoTooltip: "Заповнюється автоматично під час підготовки друку.",
+      noPreview: "Попереднього перегляду ще немає",
+      noPreviewAvailable: "Попередній перегляд для цього файлу недоступний",
+      file: "Файл",
+      filament: "Філамент",
+      color: "Колір",
+      estimatedTime: "Орієнтовний час друку",
+      filamentUsage: "Витрата філаменту",
+      renderingPreview: "Створення попереднього перегляду…",
+      layerHeight: "Висота шару",
+      printer: "Принтер",
+    },
+    printerStatus: {
+      title: "Стан принтера",
+      online: "Онлайн",
+      offline: "Не в мережі",
+    },
   },
 
   // Common

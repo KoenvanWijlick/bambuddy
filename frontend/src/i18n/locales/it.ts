@@ -1,6 +1,7 @@
 export default {
   // Navigation
   nav: {
+    print: 'Stampa',
     printers: 'Stampanti',
     archives: 'Archivi',
     queue: 'Coda di stampa',
@@ -30,6 +31,93 @@ export default {
     logout: 'Esci',
     installApp: 'Installa app',
     installAppSuccess: 'Bambuddy è stato installato',
+  },
+
+  // One-click print flow (docs/auto-print-pipeline-spec.md)
+  print: {
+    title: 'Avvia una nuova stampa',
+    subtitle: 'Carica un file, scegli il filamento, regola le impostazioni e avvia la stampa.',
+    dropzone: {
+      title: 'Scegli un file o trascina e rilascia',
+      supports: 'Supporta .gcode, .3mf, .stl, .obj, .amf',
+      chooseFile: 'Scegli file',
+      noFileSelected: 'Nessun file selezionato',
+    },
+    filament: {
+      title: 'Filamento',
+      subtitle: 'Mostra il filamento attualmente caricato nelle tue stampanti, non un catalogo generale.',
+      typeLabel: 'Tipo',
+      colorLabel: 'Colore',
+      noneLoaded: 'Nessun filamento caricato in alcuna stampante',
+      noColors: 'Nessun colore caricato',
+    },
+    options: {
+      title: 'Opzioni di stampa',
+      quality: 'Qualità',
+      layerHeight: 'Altezza layer',
+    },
+    advanced: {
+      title: 'Impostazioni avanzate',
+      autoOrient: 'Orienta automaticamente gli oggetti',
+      autoArrange: 'Disponi automaticamente sul piatto',
+      brim: 'Brim interno + esterno',
+      brimWidth: 'Larghezza brim',
+      brimWidthUnit: 'mm',
+      printerOverride: 'Stampante',
+      printerAuto: 'Selezione automatica',
+    },
+    actions: {
+      print: 'Stampa',
+      starting: 'Avvio…',
+      awaitingReview: 'In attesa della tua revisione',
+      approve: 'Approva',
+      approving: 'Approvazione…',
+      discard: 'Scarta',
+      discarding: 'Scarto…',
+    },
+    errors: {
+      noFile: 'Scegli un file da stampare.',
+      noFilament: 'Scegli un tipo di filamento.',
+      optionsLoadFailed: 'Impossibile caricare il filamento caricato nelle tue stampanti.',
+    },
+    status: {
+      stage: {
+        upload: 'Caricamento',
+        analyse: 'Analisi',
+        printer: 'Stampante',
+        slice: 'Slice',
+        review: 'Revisione',
+        queued: 'In coda',
+      },
+      retry: 'Riprova',
+      failedGeneric: 'Si è verificato un problema durante l\'avvio di questa stampa.',
+      queuedSuccess: 'Aggiunto alla coda di stampa.',
+      viewQueue: 'Visualizza coda',
+      awaitingApproval: 'Sezionato e pronto. Non è stato ancora aggiunto nulla alla coda di stampa — controlla il G-code qui sotto, poi approva per aggiungerlo alla coda di stampa oppure scarta per annullare.',
+      notQueuedYet: 'Non ancora in coda — controlla qui sotto',
+      approvalActionFailed: 'Impossibile completare l\'azione. Riprova.',
+      discarded: 'Scartato. Non è stato aggiunto nulla alla coda di stampa.',
+      startOver: 'Avvia una nuova stampa',
+    },
+    summary: {
+      title: 'Riepilogo di stampa',
+      infoTooltip: 'Si compila automaticamente durante la preparazione della stampa.',
+      noPreview: 'Ancora nessuna anteprima',
+      noPreviewAvailable: 'Nessuna anteprima disponibile per questo file',
+      file: 'File',
+      filament: 'Filamento',
+      color: 'Colore',
+      estimatedTime: 'Tempo di stampa stimato',
+      filamentUsage: 'Consumo di filamento',
+      renderingPreview: 'Generazione anteprima…',
+      layerHeight: 'Altezza layer',
+      printer: 'Stampante',
+    },
+    printerStatus: {
+      title: 'Stato stampante',
+      online: 'Online',
+      offline: 'Offline',
+    },
   },
 
   // Common

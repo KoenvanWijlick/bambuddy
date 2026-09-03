@@ -23,6 +23,7 @@ from backend.app.api.routes import (
     archive_purge,
     archives,
     auth,
+    auto_print,
     bug_report,
     camera,
     camwall,
@@ -9706,6 +9707,7 @@ async def trace_id_middleware(request, call_next):
 
 # API routes
 app.include_router(auth.router, prefix=app_settings.api_prefix)
+app.include_router(auto_print.router, prefix=app_settings.api_prefix)
 app.include_router(mfa.router, prefix=app_settings.api_prefix)
 app.include_router(bug_report.router, prefix=app_settings.api_prefix)
 app.include_router(users.router, prefix=app_settings.api_prefix)
