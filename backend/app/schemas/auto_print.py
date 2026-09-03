@@ -25,14 +25,27 @@ from pydantic import BaseModel, Field
 # "pending" is the state a flow is created in, before the background task's
 # first tick has actually run — the polling client may see it for a moment
 # on the very first GET. "failed" is terminal and can be reached from any
-# other stage; every other stage is otherwise linear.
+# other stage; every other stage is otherwise linear, EXCEPT that
+# "awaiting_approval" forks two ways: "queued" (via `POST /{id}/approve`) or
+# "discarded" (via `POST /{id}/discard`) — see the Round 2 approval-gate
+# section of docs/auto-print-pipeline-spec.md. When
+# `AutoPrintRequest.require_approval=False`, the worker skips the pause
+# entirely and goes straight from "slicing" to "queued", reproducing the
+# pre-approval-gate one-shot behaviour.
+#
+#     pending -> uploading -> analysing -> printer_selected -> slicing
+#             -> awaiting_approval -> queued
+#                                  -> discarded
+#             -> failed  (from any stage)
 AutoPrintStage = Literal[
     "pending",
     "uploading",
     "analysing",
     "printer_selected",
     "slicing",
+    "awaiting_approval",
     "queued",
+    "discarded",
     "failed",
 ]
 
@@ -52,6 +65,38 @@ class AutoPrintRequest(BaseModel):
     printer_id: int | None = Field(default=None, description="Explicit printer override; None = auto-pick.")
     auto_orient: bool = True
     auto_arrange: bool = True
+    require_approval: bool = Field(
+        default=True,
+        description=(
+            "Pause at stage='awaiting_approval' once slicing finishes — with "
+            "the sliced file, its G-code preview and its estimate already "
+            "populated — instead of queueing immediately, so the user can "
+            "review the result before anything is added to the print queue. "
+            "`POST /{id}/approve` or `POST /{id}/discard` then resolves the "
+            "pause. False reproduces the pre-approval-gate one-shot "
+            "behaviour (slice then queue, no pause), kept reachable for any "
+            "caller that doesn't want the extra round trip."
+        ),
+    )
+    brim: bool = Field(
+        default=True,
+        description=(
+            "Add an inner+outer brim at `brim_width` mm before slicing. "
+            "Default ON at 5mm — verified against the live sidecar to slice "
+            "cleanly and have real effect (docs/auto-print-pipeline-spec.md "
+            "Round 2). Maps to `SliceRequest.brim_type='outer_and_inner'` "
+            "when True; when False, maps to `'no_brim'` — an explicit toggle "
+            "must have a deterministic effect, so 'off' means no brim rather "
+            "than silently inheriting whatever the process preset defaults "
+            "to (which is `auto_brim`, not off)."
+        ),
+    )
+    brim_width: float = Field(
+        default=5.0,
+        ge=0,
+        le=50,
+        description="mm. Only takes effect when `brim` is True.",
+    )
 
 
 class PresetChoice(BaseModel):
@@ -69,6 +114,13 @@ class PresetChoice(BaseModel):
     # assumed, since nothing else on the page asks them to pick one.
     bed_type: str = Field(
         ..., description="e.g. 'Textured PEI Plate' — injected as the process preset's curr_bed_type."
+    )
+    brim: str = Field(
+        ...,
+        description=(
+            "Short human label for the summary, reflecting `AutoPrintRequest.brim`/"
+            "`brim_width` — e.g. 'Inner + outer, 5 mm' or 'Off'."
+        ),
     )
 
 

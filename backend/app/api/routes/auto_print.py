@@ -1,14 +1,19 @@
 """The "Start a new print" one-click flow.
 
-Three endpoints:
+Five endpoints:
 
-- ``POST /`` accepts the upload + the user's three choices (file, filament
-  type, colour — quality/layer-height defaulted) as multipart form fields,
-  and returns immediately with a flow id; the actual work (upload, analyse,
-  pick a printer, slice, queue) runs in the background via
-  ``auto_print_flow.start_flow``.
+- ``POST /`` accepts the upload + the user's choices (file, filament type,
+  colour, brim, ... — quality/layer-height/approval defaulted) as multipart
+  form fields, and returns immediately with a flow id; the actual work
+  (upload, analyse, pick a printer, slice, pause-for-approval) runs in the
+  background via ``auto_print_flow.start_flow``.
 - ``GET /{flow_id}`` is what the frontend polls at ~1Hz to drive the stage
   indicator and fill in the Print Summary card.
+- ``POST /{flow_id}/approve`` and ``POST /{flow_id}/discard`` resolve a flow
+  paused at ``stage='awaiting_approval'`` — see `auto_print_flow.py`'s
+  ``approve_flow``/``discard_flow`` for the actual logic; this route is just
+  the stage-conflict-to-409 / not-found-to-404 translation layer on top,
+  plus the same ownership scoping as ``GET /{flow_id}``.
 - ``GET /options`` feeds the page's dropdowns with only what the fleet can
   actually print right now.
 
@@ -31,7 +36,14 @@ from backend.app.core.database import async_session, get_db
 from backend.app.core.permissions import Permission
 from backend.app.models.user import User
 from backend.app.schemas.auto_print import AutoPrintFlow, AutoPrintRequest
-from backend.app.services.auto_print_flow import get_flow, get_flow_owner_id, start_flow
+from backend.app.services.auto_print_flow import (
+    FlowStageConflictError,
+    approve_flow,
+    discard_flow,
+    get_flow,
+    get_flow_owner_id,
+    start_flow,
+)
 from backend.app.services.auto_print_options import default_options, list_loaded_filaments, list_quality_tiers
 
 # Dev-only mock harness (see mock_printer_state.py's module docstring). The
@@ -59,6 +71,9 @@ async def create_auto_print(
     printer_id: int | None = Form(default=None),
     auto_orient: bool = Form(default=True),
     auto_arrange: bool = Form(default=True),
+    require_approval: bool = Form(default=True),
+    brim: bool = Form(default=True),
+    brim_width: float = Form(default=5.0),
     current_user: User | None = Depends(require_permission_if_auth_enabled(Permission.LIBRARY_UPLOAD)),
 ):
     """Kick off an auto-print run. Returns immediately; poll `GET /{id}`.
@@ -84,6 +99,9 @@ async def create_auto_print(
         printer_id=printer_id,
         auto_orient=auto_orient,
         auto_arrange=auto_arrange,
+        require_approval=require_approval,
+        brim=brim,
+        brim_width=brim_width,
     )
     flow_id = await start_flow(async_session, upload=file, request=request, current_user=current_user)
     return {"id": flow_id, "stage": "pending"}
@@ -103,28 +121,94 @@ async def get_auto_print_options(
     return {"filaments": filaments, "quality_tiers": quality_tiers, "defaults": defaults}
 
 
+def _check_flow_visible(flow_id: int, current_user: User | None) -> None:
+    """Shared per-row ownership scoping for every ``/{flow_id}...`` route
+    below (`GET`, `approve`, `discard`) — pulled out of `get_auto_print_flow`
+    rather than left inline once a second and third caller needed the exact
+    same rule.
+
+    Mirrors `slice_jobs.py`'s `get_slice_job`: a flow started by an API-key
+    / auth-disabled caller (`owner_id=None`) is visible to any
+    `LIBRARY_UPLOAD` caller (no per-row identity to scope against);
+    otherwise only the flow's own starter — or a caller with
+    `LIBRARY_READ_ALL` — may act on it. Raises 404 rather than 403 on the
+    ownership miss so this can't be used to enumerate live flow ids.
+    """
+    can_read_all = current_user is None or current_user.has_permission(Permission.LIBRARY_READ_ALL.value)
+    if can_read_all:
+        return
+    owner_id = get_flow_owner_id(flow_id)
+    if current_user is None or owner_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Auto-print flow not found or expired")
+
+
 @router.get("/{flow_id}", response_model=AutoPrintFlow)
 async def get_auto_print_flow(
     flow_id: int,
     current_user: User | None = Depends(require_permission_if_auth_enabled(Permission.LIBRARY_UPLOAD)),
 ):
-    """Poll target for one auto-print run's status.
+    """Poll target for one auto-print run's status."""
+    flow = get_flow(flow_id)
+    if flow is None:
+        raise HTTPException(status_code=404, detail="Auto-print flow not found or expired")
+    _check_flow_visible(flow_id, current_user)
+    return flow
 
-    Per-row ownership scoping mirrors `slice_jobs.py`'s `get_slice_job`: a
-    flow started by an API-key / auth-disabled caller (`owner_id=None`) is
-    visible to any `LIBRARY_UPLOAD` caller (no per-row identity to scope
-    against); otherwise only the flow's own starter — or a caller with
-    `LIBRARY_READ_ALL` — may poll it. 404 rather than 403 on the ownership
-    miss so this can't be used to enumerate live flow ids.
+
+@router.post("/{flow_id}/approve", response_model=AutoPrintFlow)
+async def approve_auto_print_flow(
+    flow_id: int,
+    current_user: User | None = Depends(require_permission_if_auth_enabled(Permission.LIBRARY_UPLOAD)),
+):
+    """Approve a flow paused at `stage='awaiting_approval'`: queues the
+    already-sliced result via the same queue-insert step the pre-approval-
+    gate flow used, and lands on `stage='queued'`.
+
+    Only valid from `awaiting_approval` — `auto_print_flow.approve_flow`
+    raises `FlowStageConflictError` from any other stage (including a
+    concurrent second call that lost the race to a first `approve`), which
+    this route turns into a 409 with a message naming the stage actually
+    found, rather than letting a caller double-queue by retrying.
     """
     flow = get_flow(flow_id)
     if flow is None:
         raise HTTPException(status_code=404, detail="Auto-print flow not found or expired")
+    _check_flow_visible(flow_id, current_user)
 
-    can_read_all = current_user is None or current_user.has_permission(Permission.LIBRARY_READ_ALL.value)
-    if not can_read_all:
-        owner_id = get_flow_owner_id(flow_id)
-        if current_user is None or owner_id != current_user.id:
-            raise HTTPException(status_code=404, detail="Auto-print flow not found or expired")
+    try:
+        updated = await approve_flow(async_session, flow_id)
+    except FlowStageConflictError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    if updated is None:
+        # The flow expired (retention sweep) between the visibility check
+        # above and the approve call itself — vanishingly unlikely given
+        # both run back-to-back on the same event loop tick, but a 404 is
+        # the honest answer if it ever does happen, not a 500.
+        raise HTTPException(status_code=404, detail="Auto-print flow not found or expired")
+    return updated
 
-    return flow
+
+@router.post("/{flow_id}/discard", response_model=AutoPrintFlow)
+async def discard_auto_print_flow(
+    flow_id: int,
+    current_user: User | None = Depends(require_permission_if_auth_enabled(Permission.LIBRARY_UPLOAD)),
+):
+    """Discard a flow paused at `stage='awaiting_approval'`: lands on
+    `stage='discarded'` and queues nothing. The uploaded file and the
+    sliced result are left alone in the library — only queueing is skipped.
+
+    Same 404/409 shape as `approve_auto_print_flow` above, for the same
+    reasons (unknown flow vs. wrong-stage-to-act-on).
+    """
+    flow = get_flow(flow_id)
+    if flow is None:
+        raise HTTPException(status_code=404, detail="Auto-print flow not found or expired")
+    _check_flow_visible(flow_id, current_user)
+
+    try:
+        updated = await discard_flow(flow_id)
+    except FlowStageConflictError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    if updated is None:
+        raise HTTPException(status_code=404, detail="Auto-print flow not found or expired")
+    return updated

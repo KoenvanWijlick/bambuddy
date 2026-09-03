@@ -34,6 +34,17 @@ Design choices worth calling out:
   fresh session per the existing pattern, because that job runs as a
   logically separate concurrent task and `AsyncSession` is not safe to share
   across concurrent tasks.
+* Queueing is no longer something the worker always does on its own (Round
+  2's approval gate). By default the worker pauses at ``awaiting_approval``
+  once slicing (or, for an already-sliced upload, printer selection) is
+  done, and ``approve_flow``/``discard_flow`` — called from
+  ``POST /{id}/approve`` and ``/discard``, not from this worker — resolve
+  the pause later, from their own call stack, with their own fresh DB
+  session. That's why the printer/tray chosen in stage 3 is captured onto
+  ``_FlowState`` itself (``queue_printer_id``/``queue_ams_mapping``) rather
+  than only living in a local variable, and why ``_queue_it`` — the one
+  function that actually inserts the queue row — is written to be callable
+  either from the worker or from ``approve_flow``.
 """
 
 from __future__ import annotations
@@ -65,8 +76,6 @@ from backend.app.schemas.slicer import PresetRef, SliceRequest
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-    from backend.app.services.auto_printer_select import PrinterSelection
-
 logger = logging.getLogger(__name__)
 
 _LIBRARY_API_PREFIX = f"{app_settings.api_prefix}/library"
@@ -93,6 +102,22 @@ class _FlowError(Exception):
     """
 
 
+class FlowStageConflictError(Exception):
+    """Raised by ``approve_flow``/``discard_flow`` when the flow is not
+    (or no longer) ``awaiting_approval``. Carries the stage actually
+    observed so the route can build a specific 409 message. This also
+    covers the "lost the race" case: two concurrent approve calls both
+    pass the route's own pre-lock stage check, and the second one to
+    acquire ``_FlowState.approval_lock`` finds the stage already moved to
+    ``queued`` and raises this instead of queueing a second time — see
+    ``approve_flow``'s docstring.
+    """
+
+    def __init__(self, stage: AutoPrintStage) -> None:
+        self.stage = stage
+        super().__init__(f"Auto-print flow is not awaiting approval (current stage: '{stage}').")
+
+
 @dataclass(slots=True)
 class _FlowState:
     """The mutable record for one auto-print run. `to_schema()` is the only
@@ -115,6 +140,27 @@ class _FlowState:
     gcode_preview_url: str | None = None
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     completed_at: datetime | None = None
+
+    # --- Fields below this line are internal bookkeeping only — never
+    # surfaced through `to_schema()` / the wire `AutoPrintFlow` shape. ---
+
+    # The printer + AMS tray chosen in stage 3 (`printer_selected`), captured
+    # here (rather than only living in the worker's local `printer_selection`
+    # variable) so `approve_flow` can run the queue step later, from a
+    # different call stack entirely, after the worker task that originally
+    # selected them has already finished.
+    queue_printer_id: int | None = None
+    queue_ams_mapping: list[int] | None = None
+
+    # Serialises `approve_flow`/`discard_flow` against each other and against
+    # themselves for this one flow, so a concurrent double-approve (or an
+    # approve racing a discard) can't both pass the "stage is
+    # awaiting_approval" check before either has acted on it — the same
+    # class of bug `_queue_it` was once fixed for (a stage transition
+    # observed as "done" before the state it promises was actually true),
+    # here guarded with a lock instead of ordering because the race is
+    # between two independent callers, not one worker's own sequencing.
+    approval_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
 
     def to_schema(self) -> AutoPrintFlow:
         return AutoPrintFlow(
@@ -182,7 +228,7 @@ class AutoPrintDispatchService:
         stale_ids = [
             fid
             for fid, flow in self._flows.items()
-            if flow.stage in ("queued", "failed")
+            if flow.stage in ("queued", "failed", "discarded")
             and flow.completed_at is not None
             and (now - flow.completed_at).total_seconds() > _RETENTION_SECONDS
         ]
@@ -238,6 +284,94 @@ def get_flow_owner_id(flow_id: int) -> int | None:
     """
     flow = auto_print_dispatch.get(flow_id)
     return flow.owner_id if flow is not None else None
+
+
+async def approve_flow(db_session_factory: async_sessionmaker[AsyncSession], flow_id: int) -> AutoPrintFlow | None:
+    """Approve a flow paused at ``awaiting_approval``, running the same
+    queue step the worker itself uses (``_queue_it``) and landing it on
+    ``queued``. Returns ``None`` if the flow id is unknown/expired (the
+    route turns that into a 404, same as ``get_flow``); raises
+    ``FlowStageConflictError`` if the flow is not currently
+    ``awaiting_approval`` (the route turns that into a 409).
+
+    The stage check is deliberately repeated *inside*
+    ``flow.approval_lock`` rather than trusted from the route's own
+    pre-lock check: two concurrent ``POST /approve`` calls can both observe
+    ``awaiting_approval`` before either gets here, so only re-checking under
+    the lock — and only the first caller through it ever calling
+    ``_queue_it`` — prevents a second queue item. This is the same
+    "don't mark a transition done before the awaited work behind it is
+    actually done" discipline ``_queue_it`` already applies to the worker's
+    own single-threaded sequencing, applied here to a genuine multi-caller
+    race instead.
+
+    Opens its own fresh DB session (via ``db_session_factory``, the same
+    ``async_session`` the route passes to ``start_flow``) rather than reusing
+    the worker's — that session was closed when ``_run_flow`` exited back in
+    the ``awaiting_approval`` transition, and may be running in a different
+    call stack anyway (a real HTTP request, not the background task).
+    """
+    flow = auto_print_dispatch.get(flow_id)
+    if flow is None:
+        return None
+
+    from backend.app.api.routes.print_queue import add_to_queue
+
+    async with flow.approval_lock:
+        if flow.stage != "awaiting_approval":
+            raise FlowStageConflictError(flow.stage)
+
+        assert flow.sliced_library_file_id is not None, "awaiting_approval guarantees a sliced file"
+
+        async with db_session_factory() as db:
+            user = await db.get(User, flow.owner_id) if flow.owner_id is not None else None
+            try:
+                await _queue_it(
+                    flow,
+                    db=db,
+                    add_to_queue=add_to_queue,
+                    user=user,
+                    library_file_id=flow.sliced_library_file_id,
+                )
+            except _FlowError as exc:
+                # Mirrors `_run_flow`'s own catch of `_FlowError`: a queueing
+                # failure here is a normal, user-facing failure of the flow,
+                # not an exception the HTTP layer should see — `approve`
+                # still returns 200 with `stage='failed'` and a readable
+                # `error`, exactly as if this had failed during the original
+                # worker run.
+                logger.info("Auto-print flow %s failed during approval: %s", flow_id, exc)
+                flow.stage = "failed"
+                flow.error = str(exc)
+            flow.completed_at = datetime.now(timezone.utc)
+
+    return flow.to_schema()
+
+
+async def discard_flow(flow_id: int) -> AutoPrintFlow | None:
+    """Discard a flow paused at ``awaiting_approval``: lands on
+    ``discarded`` and queues nothing. The uploaded file and the sliced
+    result are left exactly as they are in the library — only the queue
+    step is skipped, on purpose (see docs/auto-print-pipeline-spec.md
+    Round 2: "the uploaded file and the sliced result stay in the
+    library"). Returns ``None``/raises ``FlowStageConflictError`` on the
+    same terms as ``approve_flow``, including the same lock-then-recheck
+    discipline so a discard racing an approve can't leave the flow in an
+    inconsistent state — whichever call acquires ``approval_lock`` first
+    decides the outcome, and the second sees the already-moved stage.
+    """
+    flow = auto_print_dispatch.get(flow_id)
+    if flow is None:
+        return None
+
+    async with flow.approval_lock:
+        if flow.stage != "awaiting_approval":
+            raise FlowStageConflictError(flow.stage)
+        flow.stage = "discarded"
+        flow.stage_detail = ""
+        flow.completed_at = datetime.now(timezone.utc)
+
+    return flow.to_schema()
 
 
 async def _resolve_bambu_studio_api_url(db: AsyncSession) -> str:
@@ -411,18 +545,24 @@ async def _run_flow_stages(
         nozzle_diameter=printer_selection.nozzle_diameter,
         reason=printer_selection.reason,
     )
+    # Captured onto the flow itself (not just the local `printer_selection`)
+    # so a later, out-of-process `approve_flow` call can run `_queue_it`
+    # without needing this worker's own call stack — see `_FlowState`'s
+    # field comments.
+    flow.queue_printer_id = printer_selection.printer.id
+    flow.queue_ams_mapping = [printer_selection.tray.global_tray_id] if printer_selection.tray is not None else None
     flow.progress = 45
 
     if already_sliced:
         # Nothing left to slice — the upload IS the printable file.
         flow.sliced_library_file_id = lib_file.id
-        await _queue_it(
+        await _reach_approval_or_queue(
             flow,
             db=db,
             add_to_queue=add_to_queue,
             user=user,
-            printer_selection=printer_selection,
             library_file_id=lib_file.id,
+            require_approval=request.require_approval,
         )
         return
 
@@ -465,11 +605,29 @@ async def _run_flow_stages(
     except (PresetSelectionError, SlicerApiError) as exc:
         raise _FlowError(str(exc)) from exc
 
+    # Brim (Round 2): an explicit request field, not a preset-selection
+    # concern like the other three names above — `request.brim` is a plain
+    # per-print toggle, so it maps straight to a `SliceRequest` override
+    # rather than going through `auto_preset_select` at all.
+    #
+    # `False` maps to `"auto_brim"` — the profile's own default — deliberately,
+    # NOT to `"no_brim"`. The toggle's job is to force an inner+outer brim;
+    # switching it off means "stop forcing it", not "forbid a brim entirely".
+    # Those differ in a way that can ruin a print: `no_brim` would strip the
+    # adhesion aid from a tall, small-footprint part that `auto_brim` would
+    # have given one to, so an off-toggle would be silently causing failed
+    # prints. A user who genuinely wants no brim at all can say so through
+    # `SliceRequest.brim_type` on the expert slice path.
+    brim_type = "outer_and_inner" if request.brim else "auto_brim"
+    brim_width = request.brim_width if request.brim else None
+    brim_label = f"Inner + outer, {request.brim_width:g} mm" if request.brim else "Automatic"
+
     flow.presets = PresetChoice(
         printer=preset_selection.printer,
         process=preset_selection.process,
         filament=preset_selection.filament,
         bed_type=preset_selection.bed_type,
+        brim=brim_label,
     )
     flow.stage_detail = "Slicing"
     flow.progress = 55
@@ -479,6 +637,8 @@ async def _run_flow_stages(
         process_preset=PresetRef(source="standard", id=preset_selection.process),
         filament_presets=[PresetRef(source="standard", id=preset_selection.filament)],
         bed_type=preset_selection.bed_type,
+        brim_type=brim_type,
+        brim_width=brim_width,
         auto_orient=request.auto_orient,
         auto_arrange=request.auto_arrange,
     )
@@ -503,17 +663,17 @@ async def _run_flow_stages(
     )
     flow.progress = 85
 
-    # --- Stage 6: queued -----------------------------------------------------
+    # --- Stage 6: awaiting_approval, or straight through to queued ----------
     if flow.sliced_library_file_id is None:
         raise _FlowError("Slicing finished without producing a file — please try again.")
 
-    await _queue_it(
+    await _reach_approval_or_queue(
         flow,
         db=db,
         add_to_queue=add_to_queue,
         user=user,
-        printer_selection=printer_selection,
         library_file_id=flow.sliced_library_file_id,
+        require_approval=request.require_approval,
     )
 
 
@@ -589,33 +749,74 @@ async def _run_slice(
         await asyncio.sleep(_SLICE_POLL_INTERVAL_S)
 
 
+async def _reach_approval_or_queue(
+    flow: _FlowState,
+    *,
+    db: AsyncSession,
+    add_to_queue: Callable,
+    user: User | None,
+    library_file_id: int,
+    require_approval: bool,
+) -> None:
+    """The fork at the end of stage 5 (or, for an already-sliced upload,
+    straight after stage 3): pause at ``awaiting_approval`` for the caller
+    to resolve via `POST /{id}/approve` or `/discard` (the default), or —
+    when `AutoPrintRequest.require_approval` is `False` — queue immediately,
+    reproducing the pre-approval-gate one-shot behaviour.
+
+    By the time this runs, `flow.sliced_library_file_id`, `gcode_preview_url`
+    (when there is one to slice — see the already-sliced branch in
+    `_run_flow_stages`) and `estimate` are already populated by the caller;
+    that's the whole point of pausing here rather than earlier. Nothing is
+    queued on the pause path: `queue_item_id` stays `None` until a later,
+    separate `approve_flow` call runs `_queue_it`.
+    """
+    if not require_approval:
+        await _queue_it(flow, db=db, add_to_queue=add_to_queue, user=user, library_file_id=library_file_id)
+        return
+
+    flow.stage_detail = "Review the sliced result before it's queued"
+    flow.progress = 85
+    flow.stage = "awaiting_approval"
+
+
 async def _queue_it(
     flow: _FlowState,
     *,
     db: AsyncSession,
     add_to_queue: Callable,
     user: User | None,
-    printer_selection: PrinterSelection,
     library_file_id: int,
 ) -> None:
-    # `stage` is set to "queued" only once the insert has actually succeeded
-    # (see the assignment below) — never before `add_to_queue` is awaited.
-    # "queued" is the flow's terminal success state (the frontend shows it as
-    # "done, linking to the Print Queue"), so a poller must never be able to
-    # observe it with `queue_item_id` still `None`. Setting it early here,
-    # matching the other stages' "name the stage, then do the work" pattern,
-    # would leave exactly that window open across the `await` below.
+    """Insert the print-queue item. Called either straight from the worker
+    (``require_approval=False``, or an already-sliced upload with approval
+    off) or later, out of process, from ``approve_flow``.
+
+    `flow.queue_printer_id` / `flow.queue_ams_mapping` — not a
+    `PrinterSelection` object — are what this reads: they're captured onto
+    the flow back in stage 3 specifically so this function has something to
+    read regardless of which call stack it's running on (see `_FlowState`'s
+    field comments).
+
+    `stage` is set to "queued" only once the insert has actually succeeded
+    (see the assignment below) — never before `add_to_queue` is awaited.
+    "queued" is the flow's terminal success state (the frontend shows it as
+    "done, linking to the Print Queue"), so a poller must never be able to
+    observe it with `queue_item_id` still `None`. Setting it early here,
+    matching the other stages' "name the stage, then do the work" pattern,
+    would leave exactly that window open across the `await` below — this is
+    the exact bug class `approve_flow`'s lock now also guards against for
+    the multi-caller case.
+    """
     flow.stage_detail = "Adding to print queue"
     flow.progress = 90
 
-    ams_mapping: list[int] | None = None
-    if printer_selection.tray is not None:
-        ams_mapping = [printer_selection.tray.global_tray_id]
+    assert flow.queue_printer_id is not None, "queue_printer_id is set in stage 3, before this can ever run"
 
     queue_request = PrintQueueItemCreate(
-        printer_id=printer_selection.printer.id,
+        printer_id=flow.queue_printer_id,
         library_file_id=library_file_id,
-        ams_mapping=ams_mapping,
+        ams_mapping=flow.queue_ams_mapping,
     )
 
     try:

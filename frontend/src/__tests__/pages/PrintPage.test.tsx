@@ -19,8 +19,16 @@ vi.mock('../../components/ModelViewer', () => ({
   ModelViewer: ({ url }: { url: string }) => <div data-testid="model-viewer" data-url={url} />,
 }));
 vi.mock('../../components/GcodeToolpathViewer', () => ({
-  GcodeToolpathViewer: ({ gcodeUrl }: { gcodeUrl: string }) => (
-    <div data-testid="toolpath-viewer" data-url={gcodeUrl} />
+  // A button surfaces onReady so tests can fire it explicitly -- the summary
+  // timing tests need to assert what the page shows *before* it fires too.
+  GcodeToolpathViewer: ({ gcodeUrl, onReady }: { gcodeUrl: string; onReady?: () => void }) => (
+    <div data-testid="toolpath-viewer" data-url={gcodeUrl}>
+      {onReady && (
+        <button type="button" onClick={onReady}>
+          mark toolpath ready
+        </button>
+      )}
+    </div>
   ),
 }));
 
@@ -39,6 +47,53 @@ const mockOptions = {
 
 function stlFile(name = 'part.stl') {
   return new File(['solid'], name, { type: 'model/stl' });
+}
+
+// A flow at the new post-slice pause: sliced_library_file_id, gcode_preview_url
+// and estimate are populated, but queue_item_id stays null until approval.
+function awaitingApprovalFlow(id: number) {
+  return {
+    id,
+    stage: 'awaiting_approval',
+    stage_detail: '',
+    progress: 85,
+    error: null,
+    library_file_id: 7,
+    sliced_library_file_id: 8,
+    queue_item_id: null,
+    printer: {
+      id: 1,
+      name: 'Test Printer',
+      model: 'X1C',
+      nozzle_diameter: 0.4,
+      reason: 'Idle, red PLA in AMS slot 1',
+    },
+    presets: {
+      printer: 'Bambu Lab X1 Carbon 0.4 nozzle',
+      process: '0.20mm Standard @BBL X1C',
+      filament: 'Bambu PLA Basic @BBL X1C',
+      bed_type: 'Textured PEI Plate',
+      brim: 'Inner + outer, 5 mm',
+    },
+    estimate: { print_time_seconds: 1746, filament_used_g: 4.43, filament_used_mm: 1474.77 },
+    model_preview_url: '/api/v1/library/files/7/model',
+    gcode_preview_url: '/api/v1/library/files/8/gcode',
+  };
+}
+
+// Drives the form to the point of clicking "Print" -- shared by every test
+// that needs a flow started.
+async function submitPrint(user: ReturnType<typeof userEvent.setup>) {
+  const file = stlFile();
+  const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+  await user.upload(fileInput, file);
+
+  const typeSelect = await screen.findByLabelText('Type');
+  await waitFor(() => expect(within(typeSelect).getAllByRole('option').length).toBe(2));
+  await user.selectOptions(typeSelect, 'PLA');
+  await waitFor(() => expect(screen.getByLabelText('Color')).toHaveValue('#FF0000'));
+
+  await user.click(screen.getByRole('button', { name: 'Print' }));
 }
 
 describe('PrintPage', () => {
@@ -238,6 +293,149 @@ describe('PrintPage', () => {
       expect(screen.queryByText('No idle printer has PLA loaded.')).not.toBeInTheDocument();
       // Retrying re-enables the Print button.
       expect(screen.getByRole('button', { name: 'Print' })).not.toBeDisabled();
+    });
+  });
+
+  describe('approval gate', () => {
+    it('pauses at awaiting_approval with nothing queued, offering Approve and Discard', async () => {
+      const user = userEvent.setup();
+      server.use(
+        http.post('/api/v1/auto-print/', () => HttpResponse.json({ id: 50, stage: 'pending' }, { status: 202 })),
+        http.get('/api/v1/auto-print/50', () => HttpResponse.json(awaitingApprovalFlow(50))),
+      );
+
+      render(<PrintPage />);
+      await submitPrint(user);
+
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: 'Approve' })).toBeInTheDocument();
+      });
+      expect(screen.getByRole('button', { name: 'Discard' })).toBeInTheDocument();
+      // Unmistakable: nothing has been queued yet.
+      expect(
+        screen.getByText(
+          'Sliced and ready. Nothing has been queued yet — review the G-code below, then approve to add it to the print queue or discard to cancel.',
+        ),
+      ).toBeInTheDocument();
+      expect(screen.getByText('Not queued yet — review below')).toBeInTheDocument();
+      expect(screen.queryByText('Added to the print queue.')).not.toBeInTheDocument();
+      // The G-code preview, not the mesh preview, is what's shown at this stage.
+      expect(screen.getByTestId('toolpath-viewer')).toHaveAttribute(
+        'data-url',
+        '/api/v1/library/files/8/gcode',
+      );
+    });
+
+    it('approve calls the approve endpoint and reaches the queued success state', async () => {
+      const user = userEvent.setup();
+      server.use(
+        http.post('/api/v1/auto-print/', () => HttpResponse.json({ id: 51, stage: 'pending' }, { status: 202 })),
+        http.get('/api/v1/auto-print/51', () => HttpResponse.json(awaitingApprovalFlow(51))),
+        http.post('/api/v1/auto-print/51/approve', () =>
+          HttpResponse.json({
+            ...awaitingApprovalFlow(51),
+            stage: 'queued',
+            progress: 100,
+            queue_item_id: 99,
+          }),
+        ),
+      );
+
+      render(<PrintPage />);
+      await submitPrint(user);
+
+      await waitFor(() => screen.getByRole('button', { name: 'Approve' }));
+      await user.click(screen.getByRole('button', { name: 'Approve' }));
+
+      await waitFor(() => {
+        expect(screen.getByText('Added to the print queue.')).toBeInTheDocument();
+      });
+      expect(screen.getByRole('link', { name: /View queue/ })).toHaveAttribute('href', '/queue');
+      expect(screen.queryByRole('button', { name: 'Approve' })).not.toBeInTheDocument();
+    });
+
+    it('discard reaches the discarded state without queueing anything', async () => {
+      const user = userEvent.setup();
+      server.use(
+        http.post('/api/v1/auto-print/', () => HttpResponse.json({ id: 52, stage: 'pending' }, { status: 202 })),
+        http.get('/api/v1/auto-print/52', () => HttpResponse.json(awaitingApprovalFlow(52))),
+        http.post('/api/v1/auto-print/52/discard', () =>
+          HttpResponse.json({
+            ...awaitingApprovalFlow(52),
+            stage: 'discarded',
+          }),
+        ),
+      );
+
+      render(<PrintPage />);
+      await submitPrint(user);
+
+      await waitFor(() => screen.getByRole('button', { name: 'Discard' }));
+      await user.click(screen.getByRole('button', { name: 'Discard' }));
+
+      await waitFor(() => {
+        expect(screen.getByText('Discarded. Nothing was added to the print queue.')).toBeInTheDocument();
+      });
+      expect(screen.queryByText('Added to the print queue.')).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Approve' })).not.toBeInTheDocument();
+      // A way to start over.
+      const startOver = screen.getByRole('button', { name: /Start a new print/ });
+      expect(startOver).toBeInTheDocument();
+      await user.click(startOver);
+      expect(screen.queryByText('Discarded. Nothing was added to the print queue.')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('brim control', () => {
+    it('defaults on at 5mm and disables the width input when toggled off', async () => {
+      const user = userEvent.setup();
+      render(<PrintPage />);
+
+      await user.click(screen.getByRole('button', { name: 'Advanced Settings' }));
+
+      const brimToggle = screen.getByRole('switch', { name: 'Inner + outer brim' });
+      expect(brimToggle).toHaveAttribute('aria-checked', 'true');
+
+      const widthInput = screen.getByLabelText('Brim width');
+      expect(widthInput).toHaveValue(5);
+      expect(widthInput).not.toBeDisabled();
+
+      await user.click(brimToggle);
+      expect(brimToggle).toHaveAttribute('aria-checked', 'false');
+      expect(widthInput).toBeDisabled();
+    });
+  });
+
+  describe('summary timing', () => {
+    it('withholds estimated time and filament usage until the toolpath viewer signals ready', async () => {
+      const user = userEvent.setup();
+      server.use(
+        http.post('/api/v1/auto-print/', () => HttpResponse.json({ id: 53, stage: 'pending' }, { status: 202 })),
+        http.get('/api/v1/auto-print/53', () => HttpResponse.json(awaitingApprovalFlow(53))),
+      );
+
+      render(<PrintPage />);
+      await submitPrint(user);
+
+      await waitFor(() => screen.getByTestId('toolpath-viewer'));
+
+      // File / Filament / Color / Layer Height / Printer are known before
+      // slicing and show immediately.
+      expect(screen.getAllByText('part.stl').length).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByText('Test Printer').length).toBeGreaterThanOrEqual(1);
+
+      // Estimated Print Time and Filament Usage wait on the preview.
+      expect(screen.getAllByText('Rendering preview…').length).toBe(2);
+      expect(screen.queryByText('29m')).not.toBeInTheDocument();
+      expect(screen.queryByText('4.4 g')).not.toBeInTheDocument();
+
+      await user.click(screen.getByRole('button', { name: 'mark toolpath ready' }));
+
+      await waitFor(() => {
+        expect(screen.queryByText('Rendering preview…')).not.toBeInTheDocument();
+      });
+      expect(screen.getByText('29m')).toBeInTheDocument();
+      expect(screen.getByText('4.4 g')).toBeInTheDocument();
     });
   });
 });

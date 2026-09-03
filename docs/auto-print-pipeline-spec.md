@@ -511,3 +511,160 @@ There is no shared `Select` primitive — style native `<select>` inline, follow
   `printer_factory` and `mock_printer_manager` fixtures from
   `backend/tests/conftest.py` rather than inventing new printer fakes.
 - Frontend: `cd frontend && npx tsc && npm run lint && npm run test:run`.
+
+---
+
+# Round 2 — approval gate, brim, summary timing, filament note
+
+Four follow-up changes. Contract below is authoritative; the verified facts in
+the sections above still apply.
+
+## 1. Approval gate after slicing
+
+Today the flow slices and queues in one shot. It must now stop after slicing,
+show the sliced G-code, and wait for the user to approve before anything is
+queued.
+
+Stage machine becomes:
+
+    pending -> uploading -> analysing -> printer_selected -> slicing
+            -> awaiting_approval -> queued
+                                 -> discarded
+            -> failed  (from any stage)
+
+- `AutoPrintStage` gains `"awaiting_approval"` and `"discarded"`.
+- `AutoPrintRequest` gains `require_approval: bool = True`. When false the flow
+  queues directly as it does today (keeps the old behaviour reachable and keeps
+  existing tests meaningful).
+- On reaching `awaiting_approval` the flow must already have
+  `sliced_library_file_id`, `gcode_preview_url` and a populated `estimate` —
+  that is the whole point of the pause. `progress` = 85.
+- **Nothing is queued until approval.** `queue_item_id` stays `None`.
+
+New endpoints in `backend/app/api/routes/auto_print.py`, same permission gate
+and same ownership scoping as the existing `GET /{flow_id}`:
+
+    POST /api/v1/auto-print/{flow_id}/approve   -> 200 AutoPrintFlow
+    POST /api/v1/auto-print/{flow_id}/discard   -> 200 AutoPrintFlow
+
+- `approve` runs the existing queue step and lands on `queued`. Only valid from
+  `awaiting_approval`; any other stage -> 409 with a clear message.
+- `discard` lands on `discarded` and queues nothing. Also only valid from
+  `awaiting_approval` -> 409 otherwise.
+- Both are idempotent-ish in the sense that a second call returns 409 rather
+  than double-queueing. Guard against a concurrent double-approve creating two
+  queue items — this is the same class of bug as the `stage="queued"` race that
+  was already fixed once in `_queue_it`.
+
+Service API in `auto_print_flow.py`:
+
+    async def approve_flow(db_session_factory, flow_id: int) -> AutoPrintFlow
+    async def discard_flow(flow_id: int) -> AutoPrintFlow
+
+## 2. Brim — inside and outside, 5 mm
+
+Verified against the live Bambu Studio sidecar (do not re-derive):
+
+- The process profile's `brim_type` defaults to `'auto_brim'`, `brim_width` is
+  already `'5'`, `brim_object_gap` is `'0.1'`.
+- Setting `brim_type: "outer_and_inner"` with `brim_width: "5"` slices cleanly
+  (HTTP 200) and has real effect: the same test part went from
+  **4.43 g / 1746 s** to **4.58 g / 1775 s**.
+- Valid `brim_type` values: `auto_brim`, `outer_only`, `inner_only`,
+  `outer_and_inner`, `no_brim`. Only `outer_and_inner` is needed here.
+- Leave `brim_object_gap` alone.
+
+**`backend/app/schemas/slicer.py`** — add to `SliceRequest`, alongside the
+existing `bed_type` override and documented the same way:
+
+    brim_type: Literal["auto_brim","outer_only","inner_only",
+                       "outer_and_inner","no_brim"] | None = None
+    brim_width: float | None = Field(default=None, ge=0, le=50)
+
+`None` for either means "inherit from the process preset unchanged".
+
+**`backend/app/api/routes/library.py`** — add `_patch_process_brim(process_json,
+brim_type, brim_width)` mirroring `_patch_process_bed_type` exactly: same
+docstring style, same "return the input unchanged if it isn't parseable dict
+JSON" fallback, and write `brim_width` as a **string** (`"5"`), matching how the
+profile itself stores it. Chain it next to the existing bed-type patch at the
+call site (~line 3981). Do NOT rewrite `_patch_process_bed_type` — the
+SliceModal path depends on it.
+
+**`AutoPrintRequest`** gains:
+
+    brim: bool = True            # True -> brim_type="outer_and_inner"
+    brim_width: float = 5.0
+
+Default ON at 5 mm because the user asked for this to be the standing
+behaviour. It must remain switchable per print from the UI.
+
+`PresetChoice` gains `brim: str` — a short human label for the summary, e.g.
+`"Inner + outer, 5 mm"` or `"Off"`.
+
+## 3. Print Summary must wait for the G-code to finish rendering
+
+Right now the sliced numbers appear as soon as the API reports them, while the
+toolpath viewer is still parsing and rendering. The summary should only show
+the final sliced values once the G-code preview is actually ready.
+
+**`frontend/src/components/GcodeToolpathViewer.tsx`** — add an optional prop:
+
+    onReady?: () => void
+
+Call it once, after the toolpath has parsed and the first render is done — i.e.
+where `setLoading(false)` runs on the success path (~line 225). Do **not** call
+it on the error path (~line 230). It must stay optional and change nothing for
+the two existing consumers (`GCodeViewerPage`, the File Manager preview).
+
+**`PrintPage.tsx`** — track `gcodeReady`. Until it is true, the
+slice-derived rows (Estimated Print Time, Filament Usage) show a
+"rendering preview" indicator rather than their values. File / Filament /
+Color / Layer Height / Printer are known before slicing and keep showing
+immediately. Reset `gcodeReady` if the gcode URL changes.
+
+## 4. Note that the filament list reflects what is loaded on the printers
+
+The Filament section's helper text must say the options are the filaments
+currently loaded in the printers, not a free catalogue. Replace the
+`print.filament.subtitle` copy with wording to that effect (e.g. "Showing
+filament currently loaded on your printers.") and keep it as one i18n key so
+all 14 locales stay in parity.
+
+## UI for the new controls
+
+- **Advanced Settings** gains the brim control: a `Toggle` labelled for an
+  inner + outer brim, default ON, plus a numeric width input defaulting to 5
+  (mm), disabled while the toggle is off.
+- Remember the brim choice across visits in `localStorage` so "always" holds
+  without a backend setting.
+- **Stage indicator** becomes: Upload -> Analyse -> Printer -> Slice -> Review
+  -> Queued.
+- On `awaiting_approval`: the G-code preview is the focus, with a primary
+  "Approve" action (adds it to the queue) and a secondary "Discard". Make it
+  unmistakable that nothing is queued yet.
+- On `discarded`: a neutral end state with a way to start again. The uploaded
+  file and the sliced result stay in the library; only queueing is skipped.
+
+## Testing
+
+Backend, in the running container:
+
+    docker exec -w /app bambuddy-dev python -m pytest backend/tests/unit/api/test_auto_print.py -q
+    docker exec -w /app bambuddy-dev python -m ruff check <files>
+    docker exec -w /app bambuddy-dev python -m ruff format <files>
+
+Restart with `docker restart bambuddy-dev` (no `--reload`), then wait for
+`curl -s -o /dev/null -w '%{http_code}' http://localhost:8000/health` == 200.
+
+Cover at minimum: approval pauses before queueing (no queue item exists at
+`awaiting_approval`), approve creates exactly one queue item, discard creates
+none, both 409 from a wrong stage, a concurrent double-approve yields one queue
+item, `require_approval=False` still queues straight through, and the brim
+fields reach the SliceRequest.
+
+Frontend:
+
+    cd frontend && npx tsc --noEmit
+    cd frontend && npm run lint
+    cd frontend && npx vitest run src/__tests__/pages/PrintPage.test.tsx

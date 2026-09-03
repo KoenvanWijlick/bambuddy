@@ -4362,7 +4362,9 @@ export type AutoPrintStage =
   | 'analysing'
   | 'printer_selected'
   | 'slicing'
+  | 'awaiting_approval'
   | 'queued'
+  | 'discarded'
   | 'failed';
 
 export interface AutoPrintRequest {
@@ -4373,6 +4375,9 @@ export interface AutoPrintRequest {
   printer_id?: number | null;
   auto_orient?: boolean;
   auto_arrange?: boolean;
+  /** Inner + outer brim. Defaults to on at 5mm -- see brim_width. */
+  brim?: boolean;
+  brim_width?: number;
 }
 
 export interface AutoPrintStartResponse {
@@ -4385,6 +4390,8 @@ export interface AutoPrintPresetChoice {
   process: string;
   filament: string;
   bed_type: string;
+  /** Short human label, e.g. "Inner + outer, 5 mm" or "Off". */
+  brim: string;
 }
 
 export interface AutoPrintPrinterChoice {
@@ -7830,6 +7837,8 @@ export const api = {
     if (body.printer_id != null) formData.append('printer_id', String(body.printer_id));
     formData.append('auto_orient', String(body.auto_orient ?? true));
     formData.append('auto_arrange', String(body.auto_arrange ?? true));
+    formData.append('brim', String(body.brim ?? true));
+    formData.append('brim_width', String(body.brim_width ?? 5));
     const headers: Record<string, string> = {};
     if (authToken) {
       headers['Authorization'] = `Bearer ${authToken}`;
@@ -7849,6 +7858,13 @@ export const api = {
     request<AutoPrintFlow>(`/auto-print/${flowId}`),
   getAutoPrintOptions: () =>
     request<AutoPrintOptionsResponse>('/auto-print/options'),
+  // Lands the flow on `awaiting_approval` on `queued` (adds the queue item)
+  // or `discarded` (skips queueing) respectively. Only valid from
+  // `awaiting_approval` -- 409 otherwise.
+  approveAutoPrint: (flowId: number) =>
+    request<AutoPrintFlow>(`/auto-print/${flowId}/approve`, { method: 'POST' }),
+  discardAutoPrint: (flowId: number) =>
+    request<AutoPrintFlow>(`/auto-print/${flowId}/discard`, { method: 'POST' }),
 };
 
 // AMS History types

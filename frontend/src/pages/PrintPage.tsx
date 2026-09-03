@@ -21,6 +21,7 @@ import {
   ChevronDown,
   Clock,
   Disc3,
+  Eye,
   File as FileIcon,
   FolderUp,
   Gauge,
@@ -30,7 +31,9 @@ import {
   Palette,
   PlayCircle,
   Printer as PrinterIcon,
+  RotateCcw,
   Weight,
+  XCircle,
   type LucideIcon,
 } from 'lucide-react';
 import { api } from '../api/client';
@@ -48,14 +51,17 @@ const ACCEPTED_EXTENSIONS = ['.gcode', '.3mf', '.stl', '.obj', '.amf'];
 // handled by the toolpath viewer once sliced, .obj/.amf have no preview yet.
 const MESH_PREVIEW_EXTENSIONS = new Set(['stl', '3mf']);
 
-// UI-facing stage order: "upload -> analyse -> printer -> slice -> queued".
-// `pending` (the flow row exists but the worker hasn't started) collapses
-// into the same "upload" step -- there is nothing else to show the user yet.
+// UI-facing stage order: "upload -> analyse -> printer -> slice -> review ->
+// queued". `pending` (the flow row exists but the worker hasn't started)
+// collapses into the same "upload" step -- there is nothing else to show the
+// user yet. `review` is the new `awaiting_approval` pause: sliced, nothing
+// queued, waiting on the user.
 const STAGE_STEPS: { key: string; stage: AutoPrintStage }[] = [
   { key: 'upload', stage: 'uploading' },
   { key: 'analyse', stage: 'analysing' },
   { key: 'printer', stage: 'printer_selected' },
   { key: 'slice', stage: 'slicing' },
+  { key: 'review', stage: 'awaiting_approval' },
   { key: 'queued', stage: 'queued' },
 ];
 const STAGE_INDEX: Record<AutoPrintStage, number> = {
@@ -64,9 +70,51 @@ const STAGE_INDEX: Record<AutoPrintStage, number> = {
   analysing: 1,
   printer_selected: 2,
   slicing: 3,
-  queued: 4,
+  awaiting_approval: 4,
+  queued: 5,
+  // Stopped at the review step and never queued -- same position as
+  // awaiting_approval, just a different terminal outcome.
+  discarded: 4,
   failed: -1,
 };
+
+// Stages that end polling: two true terminal outcomes (queued, failed) plus
+// discarded (also terminal -- nothing further happens to this flow) and
+// awaiting_approval, which is not terminal but *is* a pause -- it sits there
+// until the user acts, so there is nothing to poll for either.
+const POLL_STOP_STAGES: ReadonlySet<AutoPrintStage> = new Set([
+  'queued',
+  'failed',
+  'discarded',
+  'awaiting_approval',
+]);
+
+// Stages where the flow is genuinely done and the form should unlock for a
+// new submission. awaiting_approval is deliberately excluded -- the user
+// must approve or discard first.
+const FORM_UNLOCK_STAGES: ReadonlySet<AutoPrintStage> = new Set(['queued', 'failed', 'discarded']);
+
+const BRIM_STORAGE_KEY = 'autoPrintBrim';
+const BRIM_WIDTH_STORAGE_KEY = 'autoPrintBrimWidth';
+
+function loadStoredBrim(): boolean {
+  try {
+    const stored = localStorage.getItem(BRIM_STORAGE_KEY);
+    return stored == null ? true : stored === 'true';
+  } catch {
+    return true;
+  }
+}
+
+function loadStoredBrimWidth(): number {
+  try {
+    const stored = localStorage.getItem(BRIM_WIDTH_STORAGE_KEY);
+    const n = stored != null ? Number(stored) : NaN;
+    return Number.isFinite(n) && n >= 0 ? n : 5;
+  } catch {
+    return 5;
+  }
+}
 
 function fileExtension(name: string): string {
   const idx = name.lastIndexOf('.');
@@ -105,11 +153,17 @@ function SummaryRow({
   label,
   value,
   swatchColor,
+  rendering,
+  renderingLabel,
 }: {
   icon: LucideIcon;
   label: string;
   value: string | null;
   swatchColor?: string | null;
+  /** When set, shows `renderingLabel` in place of `value` (see PrintPage's
+   * gcodeReady tracking -- the sliced numbers wait on the toolpath viewer). */
+  rendering?: boolean;
+  renderingLabel?: string;
 }) {
   return (
     <div className="flex items-center justify-between gap-3 text-sm">
@@ -117,16 +171,23 @@ function SummaryRow({
         <Icon className="h-4 w-4 shrink-0" />
         {label}
       </span>
-      <span className="flex min-w-0 items-center gap-1.5 truncate text-white">
-        {swatchColor && value && (
-          <span
-            className="h-3 w-3 shrink-0 rounded-full border border-white/20"
-            style={{ backgroundColor: swatchColor }}
-            aria-hidden
-          />
-        )}
-        <span className="truncate">{value ?? '—'}</span>
-      </span>
+      {rendering ? (
+        <span className="flex shrink-0 items-center gap-1.5 text-xs text-bambu-gray">
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          {renderingLabel}
+        </span>
+      ) : (
+        <span className="flex min-w-0 items-center gap-1.5 truncate text-white">
+          {swatchColor && value && (
+            <span
+              className="h-3 w-3 shrink-0 rounded-full border border-white/20"
+              style={{ backgroundColor: swatchColor }}
+              aria-hidden
+            />
+          )}
+          <span className="truncate">{value ?? '—'}</span>
+        </span>
+      )}
     </div>
   );
 }
@@ -143,9 +204,13 @@ function StageIndicator({ flow }: { flow: AutoPrintFlow }) {
             className={`h-1.5 flex-1 rounded-full transition-colors ${
               flow.stage === 'failed'
                 ? 'bg-red-900/50'
-                : i <= activeIndex
-                  ? 'bg-bambu-green'
-                  : 'bg-bambu-dark-tertiary'
+                : flow.stage === 'discarded'
+                  ? i <= activeIndex
+                    ? 'bg-bambu-gray/50'
+                    : 'bg-bambu-dark-tertiary'
+                  : i <= activeIndex
+                    ? 'bg-bambu-green'
+                    : 'bg-bambu-dark-tertiary'
             }`}
           />
         ))}
@@ -160,7 +225,7 @@ function StageIndicator({ flow }: { flow: AutoPrintFlow }) {
           </span>
         ))}
       </div>
-      {flow.stage !== 'queued' && flow.stage !== 'failed' && (
+      {!POLL_STOP_STAGES.has(flow.stage) && (
         <div className="flex items-center gap-2 text-xs text-bambu-gray">
           <Loader2 className="h-3.5 w-3.5 animate-spin" />
           <span>{flow.stage_detail || t(`print.status.stage.${STAGE_STEPS[Math.max(0, activeIndex)].key}`)}</span>
@@ -188,9 +253,31 @@ export function PrintPage() {
   const [autoOrient, setAutoOrient] = useState(true);
   const [autoArrange, setAutoArrange] = useState(true);
   const [printerOverride, setPrinterOverride] = useState<number | null>(null);
+  // Inner + outer brim, default on at 5mm; remembered across visits per the
+  // spec's "standing behaviour" requirement.
+  const [brim, setBrim] = useState<boolean>(() => loadStoredBrim());
+  const [brimWidth, setBrimWidth] = useState<number>(() => loadStoredBrimWidth());
+  useEffect(() => {
+    try {
+      localStorage.setItem(BRIM_STORAGE_KEY, String(brim));
+    } catch {
+      // Private mode / quota failures shouldn't break the page.
+    }
+  }, [brim]);
+  useEffect(() => {
+    try {
+      localStorage.setItem(BRIM_WIDTH_STORAGE_KEY, String(brimWidth));
+    } catch {
+      // Private mode / quota failures shouldn't break the page.
+    }
+  }, [brimWidth]);
 
   const [flowId, setFlowId] = useState<number | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  // Set once GcodeToolpathViewer's onReady fires for the current preview, so
+  // the summary can withhold the sliced numbers until the viewer showing
+  // them is actually up (see GcodeToolpathViewer's onReady prop).
+  const [gcodeReady, setGcodeReady] = useState(false);
 
   const optionsQuery = useQuery({
     queryKey: ['auto-print-options'],
@@ -282,11 +369,12 @@ export function PrintPage() {
     queryKey: ['auto-print-flow', flowId],
     queryFn: () => api.getAutoPrintFlow(flowId as number),
     enabled: flowId != null,
-    // ~1 Hz while the flow is in progress; stop once it lands on a terminal
-    // stage so a finished/failed flow doesn't keep polling forever.
+    // ~1 Hz while the flow is actively progressing; stop once it lands on a
+    // terminal stage (queued/failed/discarded) or pauses at awaiting_approval
+    // -- a paused flow has nothing new to report until the user acts.
     refetchInterval: (query) => {
       const stage = query.state.data?.stage;
-      return stage === 'queued' || stage === 'failed' ? false : 1000;
+      return stage != null && POLL_STOP_STAGES.has(stage) ? false : 1000;
     },
   });
   const flow = flowQuery.data ?? null;
@@ -296,6 +384,14 @@ export function PrintPage() {
       queryClient.invalidateQueries({ queryKey: ['queue'] });
     }
   }, [flow?.stage, queryClient]);
+
+  // The slice-derived summary rows (time, filament usage) hold off on the
+  // gcode viewer's onReady, not on the flow reaching a stage -- reset
+  // whenever the preview URL changes so a new flow doesn't show stale-fast
+  // numbers off the old parse.
+  useEffect(() => {
+    setGcodeReady(false);
+  }, [flow?.gcode_preview_url]);
 
   const printerStatusQuery = useQuery({
     queryKey: ['printerStatus', flow?.printer?.id],
@@ -316,6 +412,8 @@ export function PrintPage() {
         printer_id: printerOverride,
         auto_orient: autoOrient,
         auto_arrange: autoArrange,
+        brim,
+        brim_width: brimWidth,
       };
       return api.startAutoPrint(file, body);
     },
@@ -328,10 +426,28 @@ export function PrintPage() {
     },
   });
 
-  // In flight between submit and a terminal stage. The form stays enabled
-  // once `failed` is reached (#the spec's retry requirement) or `queued`
-  // (so the user can immediately start another print).
-  const isRunning = flowId != null && flow != null && flow.stage !== 'queued' && flow.stage !== 'failed';
+  // Approve/discard only ever act on the flow currently on screen, which is
+  // only reachable once flowId is set -- both write the response straight
+  // into the flow's query cache so the UI (and refetchInterval, which reads
+  // that same cache) updates immediately rather than waiting on a poll tick.
+  const approveMutation = useMutation({
+    mutationFn: () => api.approveAutoPrint(flowId as number),
+    onSuccess: (res) => {
+      queryClient.setQueryData(['auto-print-flow', flowId], res);
+    },
+  });
+  const discardMutation = useMutation({
+    mutationFn: () => api.discardAutoPrint(flowId as number),
+    onSuccess: (res) => {
+      queryClient.setQueryData(['auto-print-flow', flowId], res);
+    },
+  });
+
+  // In flight between submit and a genuinely finished stage. The form stays
+  // enabled once `failed`/`discarded` is reached (retry / start-over) or
+  // `queued` (so the user can immediately start another print) -- but not at
+  // `awaiting_approval`, which still needs a decision.
+  const isRunning = flowId != null && flow != null && !FORM_UNLOCK_STAGES.has(flow.stage);
   const formDisabled = isRunning || startMutation.isPending;
   const canSubmit = !!file && !!filamentType && !formDisabled;
 
@@ -376,6 +492,7 @@ export function PrintPage() {
         gcodeUrl={flow.gcode_preview_url}
         filamentColors={filamentColors}
         className="h-full w-full"
+        onReady={() => setGcodeReady(true)}
       />
     );
   } else if (meshPreviewUrl && canPreviewMesh) {
@@ -395,6 +512,11 @@ export function PrintPage() {
 
   const selectedColor = colorOptions.find((c) => c.color_hex === colorHex);
   const colorName = selectedColor ? selectedColor.color_name || getColorName(selectedColor.color_hex, filamentType) : null;
+
+  // The sliced numbers (time, filament usage) come from the same G-code the
+  // toolpath viewer is parsing -- show them only once that parse is done, so
+  // they don't appear ahead of the preview that visualises them.
+  const waitingOnGcodePreview = flow?.gcode_preview_url != null && !gcodeReady;
 
   return (
     <div className="mx-auto max-w-7xl p-4 md:p-6">
@@ -589,6 +711,32 @@ export function PrintPage() {
                     <Toggle checked={autoArrange} onChange={setAutoArrange} disabled={formDisabled} />
                   </label>
                   <div>
+                    <label className="flex items-center justify-between gap-3">
+                      <span className="text-sm text-bambu-gray">{t('print.advanced.brim')}</span>
+                      <Toggle checked={brim} onChange={setBrim} disabled={formDisabled} />
+                    </label>
+                    <div className="mt-2 flex items-center justify-between gap-3">
+                      <label htmlFor="print-brim-width" className="text-xs text-bambu-gray">
+                        {t('print.advanced.brimWidth')}
+                      </label>
+                      <div className="flex items-center gap-1.5">
+                        <input
+                          id="print-brim-width"
+                          type="number"
+                          min={0}
+                          max={50}
+                          step={0.5}
+                          value={brimWidth}
+                          onChange={(e) => setBrimWidth(Number(e.target.value))}
+                          disabled={formDisabled || !brim}
+                          aria-label={t('print.advanced.brimWidth')}
+                          className="w-20 rounded-lg border border-bambu-dark-tertiary bg-bambu-dark px-2 py-1 text-sm text-white focus:border-bambu-green focus:outline-none focus:ring-1 focus:ring-bambu-green disabled:cursor-not-allowed disabled:opacity-50"
+                        />
+                        <span className="text-xs text-bambu-gray">{t('print.advanced.brimWidthUnit')}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div>
                     <label className="mb-1.5 block text-xs text-bambu-gray">
                       {t('print.advanced.printerOverride')}
                     </label>
@@ -624,7 +772,16 @@ export function PrintPage() {
                 disabled={!canSubmit}
                 onClick={() => startMutation.mutate()}
               >
-                {startMutation.isPending || isRunning ? (
+                {/* At `awaiting_approval` the pipeline is not working, it is
+                    waiting on the user — a spinner reading "Starting..." there
+                    reads as "still busy" and competes with the Approve button
+                    that is actually live. Show a settled label instead. */}
+                {flow?.stage === 'awaiting_approval' ? (
+                  <>
+                    <Eye className="h-4 w-4" />
+                    {t('print.actions.awaitingReview')}
+                  </>
+                ) : startMutation.isPending || isRunning ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
                     {t('print.actions.starting')}
@@ -655,6 +812,79 @@ export function PrintPage() {
                       </div>
                     </div>
                   )}
+                  {flow.stage === 'awaiting_approval' && (
+                    <div
+                      className="space-y-3 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-300"
+                      role="alert"
+                    >
+                      <div className="flex items-start gap-2">
+                        <Eye className="mt-0.5 h-4 w-4 shrink-0" />
+                        <span>{t('print.status.awaitingApproval')}</span>
+                      </div>
+                      {(approveMutation.isError || discardMutation.isError) && (
+                        <p className="text-xs text-red-400">
+                          {approveMutation.error instanceof Error
+                            ? approveMutation.error.message
+                            : discardMutation.error instanceof Error
+                              ? discardMutation.error.message
+                              : t('print.status.approvalActionFailed')}
+                        </p>
+                      )}
+                      <div className="flex gap-2">
+                        <Button
+                          type="button"
+                          size="sm"
+                          disabled={approveMutation.isPending || discardMutation.isPending}
+                          onClick={() => approveMutation.mutate()}
+                        >
+                          {approveMutation.isPending ? (
+                            <>
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                              {t('print.actions.approving')}
+                            </>
+                          ) : (
+                            <>
+                              <CheckCircle2 className="h-4 w-4" />
+                              {t('print.actions.approve')}
+                            </>
+                          )}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          disabled={approveMutation.isPending || discardMutation.isPending}
+                          onClick={() => discardMutation.mutate()}
+                        >
+                          {discardMutation.isPending ? (
+                            <>
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                              {t('print.actions.discarding')}
+                            </>
+                          ) : (
+                            <>
+                              <XCircle className="h-4 w-4" />
+                              {t('print.actions.discard')}
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                  {flow.stage === 'discarded' && (
+                    <div className="flex items-center gap-2 rounded-lg border border-bambu-dark-tertiary bg-bambu-dark p-3 text-sm text-bambu-gray">
+                      <Info className="h-4 w-4 shrink-0" />
+                      <span>{t('print.status.discarded')}</span>
+                      <button
+                        type="button"
+                        onClick={handleRetry}
+                        className="ml-auto inline-flex shrink-0 items-center gap-1 text-xs text-white underline hover:no-underline"
+                      >
+                        <RotateCcw className="h-3.5 w-3.5" />
+                        {t('print.status.startOver')}
+                      </button>
+                    </div>
+                  )}
                   {flow.stage === 'queued' && (
                     <div className="flex items-center gap-2 rounded-lg border border-bambu-green/40 bg-bambu-green/10 p-3 text-sm text-bambu-green">
                       <CheckCircle2 className="h-4 w-4 shrink-0" />
@@ -681,7 +911,17 @@ export function PrintPage() {
               </span>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="relative h-56 overflow-hidden rounded-lg border border-bambu-dark-tertiary">
+              {flow?.stage === 'awaiting_approval' && (
+                <div className="flex items-center gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs font-medium text-amber-300">
+                  <Eye className="h-3.5 w-3.5 shrink-0" />
+                  {t('print.status.notQueuedYet')}
+                </div>
+              )}
+              <div
+                className={`relative overflow-hidden rounded-lg border border-bambu-dark-tertiary transition-all ${
+                  flow?.stage === 'awaiting_approval' ? 'h-80' : 'h-56'
+                }`}
+              >
                 {previewNode}
               </div>
               <dl className="space-y-2.5">
@@ -697,6 +937,8 @@ export function PrintPage() {
                   icon={Clock}
                   label={t('print.summary.estimatedTime')}
                   value={formatDuration(flow?.estimate.print_time_seconds)}
+                  rendering={waitingOnGcodePreview}
+                  renderingLabel={t('print.summary.renderingPreview')}
                 />
                 <SummaryRow
                   icon={Weight}
@@ -706,6 +948,8 @@ export function PrintPage() {
                       ? `${flow.estimate.filament_used_g.toFixed(1)} g`
                       : null
                   }
+                  rendering={waitingOnGcodePreview}
+                  renderingLabel={t('print.summary.renderingPreview')}
                 />
                 <SummaryRow
                   icon={Layers}
