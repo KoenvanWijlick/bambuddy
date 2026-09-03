@@ -1,6 +1,7 @@
 export default {
   // Navigation
   nav: {
+    print: 'Print',
     printers: 'Printers',
     archives: 'Archives',
     queue: 'Print Queue',
@@ -30,6 +31,78 @@ export default {
     logout: 'Logout',
     installApp: 'Install app',
     installAppSuccess: 'Bambuddy was installed',
+  },
+
+  // One-click print flow (docs/auto-print-pipeline-spec.md)
+  print: {
+    title: 'Start a new print',
+    subtitle: 'Upload a file, choose your filament, adjust settings and start printing.',
+    dropzone: {
+      title: 'Choose a file or drag and drop',
+      supports: 'Supports .gcode, .3mf, .stl, .obj, .amf',
+      chooseFile: 'Choose File',
+      noFileSelected: 'No file selected',
+    },
+    filament: {
+      title: 'Filament',
+      subtitle: 'Select the filament type and color you are using.',
+      typeLabel: 'Type',
+      colorLabel: 'Color',
+      noneLoaded: 'No filament loaded in any printer',
+      noColors: 'No colors loaded',
+    },
+    options: {
+      title: 'Print Options',
+      quality: 'Quality',
+      layerHeight: 'Layer Height',
+    },
+    advanced: {
+      title: 'Advanced Settings',
+      autoOrient: 'Auto-orient parts',
+      autoArrange: 'Auto-arrange plate',
+      printerOverride: 'Printer',
+      printerAuto: 'Auto-select',
+    },
+    actions: {
+      print: 'Print',
+      starting: 'Starting…',
+    },
+    errors: {
+      noFile: 'Choose a file to print.',
+      noFilament: 'Choose a filament type.',
+      optionsLoadFailed: 'Could not load the filament loaded in your printers.',
+    },
+    status: {
+      stage: {
+        upload: 'Upload',
+        analyse: 'Analyse',
+        printer: 'Printer',
+        slice: 'Slice',
+        queued: 'Queued',
+      },
+      retry: 'Retry',
+      failedGeneric: 'Something went wrong starting this print.',
+      queuedSuccess: 'Added to the print queue.',
+      viewQueue: 'View queue',
+    },
+    summary: {
+      title: 'Print Summary',
+      infoTooltip: 'Fills in automatically as your print is prepared.',
+      noPreview: 'No preview yet',
+      noPreviewAvailable: 'No preview available for this file',
+      file: 'File',
+      filament: 'Filament',
+      color: 'Color',
+      estimatedTime: 'Estimated Print Time',
+      filamentUsage: 'Filament Usage',
+      layerHeight: 'Layer Height',
+      printer: 'Printer',
+    },
+    printerStatus: {
+      title: 'Printer Status',
+      online: 'Online',
+      offline: 'Offline',
+    },
   },
 
   // Common

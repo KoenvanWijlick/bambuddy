@@ -1,6 +1,7 @@
 export default {
   // Navigation
   nav: {
+    print: 'Imprimer',
     printers: 'Imprimantes',
     archives: 'Archives',
     queue: 'File d\'attente d\'impression',
@@ -30,6 +31,78 @@ export default {
     logout: 'Déconnexion',
     installApp: "Installer l'application",
     installAppSuccess: 'Bambuddy a été installé',
+  },
+
+  // One-click print flow (docs/auto-print-pipeline-spec.md)
+  print: {
+    title: 'Démarrer une nouvelle impression',
+    subtitle: 'Téléversez un fichier, choisissez votre filament, ajustez les réglages et lancez l\'impression.',
+    dropzone: {
+      title: 'Choisissez un fichier ou glissez-déposez',
+      supports: 'Prend en charge .gcode, .3mf, .stl, .obj, .amf',
+      chooseFile: 'Choisir un fichier',
+      noFileSelected: 'Aucun fichier sélectionné',
+    },
+    filament: {
+      title: 'Filament',
+      subtitle: 'Sélectionnez le type de filament et la couleur que vous utilisez.',
+      typeLabel: 'Type',
+      colorLabel: 'Couleur',
+      noneLoaded: 'Aucun filament chargé dans une imprimante',
+      noColors: 'Aucune couleur chargée',
+    },
+    options: {
+      title: 'Options d\'impression',
+      quality: 'Qualité',
+      layerHeight: 'Hauteur de couche',
+    },
+    advanced: {
+      title: 'Paramètres avancés',
+      autoOrient: 'Orienter les objets automatiquement',
+      autoArrange: 'Disposer automatiquement sur le plateau',
+      printerOverride: 'Imprimante',
+      printerAuto: 'Sélection automatique',
+    },
+    actions: {
+      print: 'Imprimer',
+      starting: 'Démarrage…',
+    },
+    errors: {
+      noFile: 'Choisissez un fichier à imprimer.',
+      noFilament: 'Choisissez un type de filament.',
+      optionsLoadFailed: 'Impossible de charger le filament chargé dans vos imprimantes.',
+    },
+    status: {
+      stage: {
+        upload: 'Téléverser',
+        analyse: 'Analyser',
+        printer: 'Imprimante',
+        slice: 'Découper',
+        queued: 'En attente',
+      },
+      retry: 'Réessayer',
+      failedGeneric: 'Une erreur s\'est produite au démarrage de cette impression.',
+      queuedSuccess: 'Ajouté à la file d\'attente d\'impression.',
+      viewQueue: 'Voir la file d\'attente',
+    },
+    summary: {
+      title: 'Résumé de l\'impression',
+      infoTooltip: 'Se remplit automatiquement pendant la préparation de votre impression.',
+      noPreview: 'Pas encore d\'aperçu',
+      noPreviewAvailable: 'Aucun aperçu disponible pour ce fichier',
+      file: 'Fichier',
+      filament: 'Filament',
+      color: 'Couleur',
+      estimatedTime: 'Temps d\'impression estimé',
+      filamentUsage: 'Consommation de filament',
+      layerHeight: 'Hauteur de couche',
+      printer: 'Imprimante',
+    },
+    printerStatus: {
+      title: 'État de l\'imprimante',
+      online: 'En ligne',
+      offline: 'Hors ligne',
+    },
   },
 
   // Common

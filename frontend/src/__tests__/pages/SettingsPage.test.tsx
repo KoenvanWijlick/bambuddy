@@ -273,7 +273,7 @@ describe('SettingsPage', () => {
       vi.mocked(localStorage.setItem).mockClear();
       await user.click((await screen.findAllByLabelText('Hide page'))[0]);
 
-      expect(localStorage.setItem).toHaveBeenCalledWith(SIDEBAR_HIDDEN_SYSTEM_ITEMS_KEY, JSON.stringify(['printers']));
+      expect(localStorage.setItem).toHaveBeenCalledWith(SIDEBAR_HIDDEN_SYSTEM_ITEMS_KEY, JSON.stringify(['print']));
       expect(screen.getByText('Hidden from sidebar')).toBeInTheDocument();
     });
 
@@ -382,7 +382,7 @@ describe('SettingsPage', () => {
 
       expect(localStorage.setItem).toHaveBeenCalledWith(
         SIDEBAR_ORDER_KEY,
-        JSON.stringify(['ext-7', 'printers', 'inventory', 'archives', 'queue', 'projects', 'files', 'makerworld', 'profiles', 'maintenance', 'stats', 'finance', 'notifications', 'settings']),
+        JSON.stringify(['print', 'ext-7', 'printers', 'inventory', 'archives', 'queue', 'projects', 'files', 'makerworld', 'profiles', 'maintenance', 'stats', 'finance', 'notifications', 'settings']),
       );
     });
 
@@ -424,7 +424,7 @@ describe('SettingsPage', () => {
       expect(localStorage.setItem).toHaveBeenCalledWith(SIDEBAR_HIDDEN_SYSTEM_ITEMS_KEY, JSON.stringify([]));
       expect(localStorage.setItem).toHaveBeenCalledWith(
         SIDEBAR_ORDER_KEY,
-        JSON.stringify(['printers', 'inventory', 'archives', 'queue', 'projects', 'files', 'makerworld', 'profiles', 'maintenance', 'stats', 'finance', 'notifications', 'settings', 'ext-7']),
+        JSON.stringify(['print', 'printers', 'inventory', 'archives', 'queue', 'projects', 'files', 'makerworld', 'profiles', 'maintenance', 'stats', 'finance', 'notifications', 'settings', 'ext-7']),
       );
 
       const settingsRow = screen.getAllByText('Settings')
@@ -485,6 +485,7 @@ describe('SettingsPage', () => {
       });
       expect(JSON.parse(defaultSidebarOrderPayload!)).toEqual({
         order: [
+          'print',
           'printers',
           'inventory',
           'archives',

@@ -1,5 +1,6 @@
 export default {
   nav: {
+    print: '인쇄',
     printers: '프린터',
     archives: '아카이브',
     queue: '대기열',
@@ -29,6 +30,76 @@ export default {
     logout: '로그아웃',
     installApp: '앱 설치',
     installAppSuccess: 'Bambuddy가 설치되었습니다'
+  },
+  print: {
+    title: '새 인쇄 시작',
+    subtitle: '파일을 업로드하고, 필라멘트를 선택하고, 설정을 조정한 후 인쇄를 시작하세요.',
+    dropzone: {
+      title: '파일을 선택하거나 드래그 앤 드롭하세요',
+      supports: '.gcode, .3mf, .stl, .obj, .amf 지원',
+      chooseFile: '파일 선택',
+      noFileSelected: '선택된 파일 없음',
+    },
+    filament: {
+      title: '필라멘트',
+      subtitle: '사용할 필라멘트 종류와 색상을 선택하세요.',
+      typeLabel: '유형',
+      colorLabel: '색상',
+      noneLoaded: '어떤 프린터에도 필라멘트가 로드되지 않았습니다',
+      noColors: '로드된 색상이 없습니다',
+    },
+    options: {
+      title: '인쇄 옵션',
+      quality: '품질',
+      layerHeight: '레이어 높이',
+    },
+    advanced: {
+      title: '고급 설정',
+      autoOrient: '개체 방향 자동 조정',
+      autoArrange: '플레이트에 자동 배치',
+      printerOverride: '프린터',
+      printerAuto: '자동 선택',
+    },
+    actions: {
+      print: '인쇄',
+      starting: '시작하는 중…',
+    },
+    errors: {
+      noFile: '인쇄할 파일을 선택하세요.',
+      noFilament: '필라멘트 종류를 선택하세요.',
+      optionsLoadFailed: '프린터에 로드된 필라멘트를 불러오지 못했습니다.',
+    },
+    status: {
+      stage: {
+        upload: '업로드',
+        analyse: '분석',
+        printer: '프린터',
+        slice: '슬라이스',
+        queued: '대기 중',
+      },
+      retry: '다시 시도',
+      failedGeneric: '이 인쇄를 시작하는 중 문제가 발생했습니다.',
+      queuedSuccess: '인쇄 대기열에 추가되었습니다.',
+      viewQueue: '대기열 보기',
+    },
+    summary: {
+      title: '인쇄 요약',
+      infoTooltip: '인쇄가 준비되는 동안 자동으로 채워집니다.',
+      noPreview: '아직 미리보기가 없습니다',
+      noPreviewAvailable: '이 파일에는 미리보기를 사용할 수 없습니다',
+      file: '파일',
+      filament: '필라멘트',
+      color: '색상',
+      estimatedTime: '예상 인쇄 시간',
+      filamentUsage: '필라멘트 사용량',
+      layerHeight: '레이어 높이',
+      printer: '프린터',
+    },
+    printerStatus: {
+      title: '프린터 상태',
+      online: '온라인',
+      offline: '오프라인',
+    },
   },
   common: {
     plusNMore: '외 {{count}}개',

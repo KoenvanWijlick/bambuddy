@@ -1,6 +1,7 @@
 export default {
   // Navigation
   nav: {
+    print: 'Imprimir',
     printers: 'Impressoras',
     archives: 'Arquivos',
     queue: 'Fila de impressão',
@@ -30,6 +31,78 @@ export default {
     logout: 'Sair',
     installApp: 'Instalar app',
     installAppSuccess: 'Bambuddy foi instalado',
+  },
+
+  // One-click print flow (docs/auto-print-pipeline-spec.md)
+  print: {
+    title: 'Iniciar uma nova impressão',
+    subtitle: 'Envie um arquivo, escolha seu filamento, ajuste as configurações e inicie a impressão.',
+    dropzone: {
+      title: 'Escolha um arquivo ou arraste e solte',
+      supports: 'Suporta .gcode, .3mf, .stl, .obj, .amf',
+      chooseFile: 'Escolher arquivo',
+      noFileSelected: 'Nenhum arquivo selecionado',
+    },
+    filament: {
+      title: 'Filamento',
+      subtitle: 'Selecione o tipo de filamento e a cor que você está usando.',
+      typeLabel: 'Tipo',
+      colorLabel: 'Cor',
+      noneLoaded: 'Nenhum filamento carregado em nenhuma impressora',
+      noColors: 'Nenhuma cor carregada',
+    },
+    options: {
+      title: 'Opções de Impressão',
+      quality: 'Qualidade',
+      layerHeight: 'Altura da camada',
+    },
+    advanced: {
+      title: 'Configurações Avançadas',
+      autoOrient: 'Orientar os objetos automaticamente',
+      autoArrange: 'Organizar automaticamente na mesa',
+      printerOverride: 'Impressora',
+      printerAuto: 'Seleção automática',
+    },
+    actions: {
+      print: 'Imprimir',
+      starting: 'Iniciando…',
+    },
+    errors: {
+      noFile: 'Escolha um arquivo para imprimir.',
+      noFilament: 'Escolha um tipo de filamento.',
+      optionsLoadFailed: 'Não foi possível carregar o filamento carregado nas suas impressoras.',
+    },
+    status: {
+      stage: {
+        upload: 'Envio',
+        analyse: 'Análise',
+        printer: 'Impressora',
+        slice: 'Fatiar',
+        queued: 'Na Fila',
+      },
+      retry: 'Tentar novamente',
+      failedGeneric: 'Algo deu errado ao iniciar esta impressão.',
+      queuedSuccess: 'Adicionado à fila de impressão.',
+      viewQueue: 'Ver fila',
+    },
+    summary: {
+      title: 'Resumo da Impressão',
+      infoTooltip: 'É preenchido automaticamente enquanto sua impressão é preparada.',
+      noPreview: 'Ainda sem pré-visualização',
+      noPreviewAvailable: 'Nenhuma pré-visualização disponível para este arquivo',
+      file: 'Arquivo',
+      filament: 'Filamento',
+      color: 'Cor',
+      estimatedTime: 'Tempo Estimado de Impressão',
+      filamentUsage: 'Uso de Filamento',
+      layerHeight: 'Altura da Camada',
+      printer: 'Impressora',
+    },
+    printerStatus: {
+      title: 'Status da Impressora',
+      online: 'Online',
+      offline: 'Offline',
+    },
   },
 
   // Common

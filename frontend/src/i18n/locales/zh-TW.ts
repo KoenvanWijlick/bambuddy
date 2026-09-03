@@ -1,6 +1,7 @@
 export default {
   // Navigation
   nav: {
+    print: '列印',
     printers: '印表機',
     archives: '歸檔',
     queue: '列印佇列',
@@ -30,6 +31,78 @@ export default {
     logout: '登出',
     installApp: '安裝應用程式',
     installAppSuccess: 'Bambuddy 已安裝',
+  },
+
+  // One-click print flow (docs/auto-print-pipeline-spec.md)
+  print: {
+    title: '開始新列印',
+    subtitle: '上傳檔案、選擇耗材、調整設定並開始列印。',
+    dropzone: {
+      title: '選擇檔案或拖放到此處',
+      supports: '支援 .gcode, .3mf, .stl, .obj, .amf',
+      chooseFile: '選擇檔案',
+      noFileSelected: '未選擇檔案',
+    },
+    filament: {
+      title: '耗材',
+      subtitle: '選擇您使用的耗材類型與顏色。',
+      typeLabel: '類型',
+      colorLabel: '顏色',
+      noneLoaded: '沒有任何印表機載入耗材',
+      noColors: '未載入顏色',
+    },
+    options: {
+      title: '列印選項',
+      quality: '品質',
+      layerHeight: '層高',
+    },
+    advanced: {
+      title: '進階設定',
+      autoOrient: '自動擺正模型',
+      autoArrange: '自動排列在熱床上',
+      printerOverride: '印表機',
+      printerAuto: '自動選擇',
+    },
+    actions: {
+      print: '列印',
+      starting: '啟動中…',
+    },
+    errors: {
+      noFile: '請選擇要列印的檔案。',
+      noFilament: '請選擇耗材類型。',
+      optionsLoadFailed: '無法載入您印表機中已裝載的耗材。',
+    },
+    status: {
+      stage: {
+        upload: '上傳',
+        analyse: '分析',
+        printer: '印表機',
+        slice: '切片',
+        queued: '佇列中',
+      },
+      retry: '重試',
+      failedGeneric: '啟動此列印時發生問題。',
+      queuedSuccess: '已加入列印佇列。',
+      viewQueue: '檢視佇列',
+    },
+    summary: {
+      title: '列印摘要',
+      infoTooltip: '在準備列印時會自動填入。',
+      noPreview: '尚無預覽',
+      noPreviewAvailable: '此檔案沒有可用的預覽',
+      file: '檔案',
+      filament: '耗材',
+      color: '顏色',
+      estimatedTime: '預計列印時間',
+      filamentUsage: '耗材用量',
+      layerHeight: '層高',
+      printer: '印表機',
+    },
+    printerStatus: {
+      title: '印表機狀態',
+      online: '線上',
+      offline: '離線',
+    },
   },
 
   // Common

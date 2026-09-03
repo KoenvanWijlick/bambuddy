@@ -1,6 +1,7 @@
 export default {
   // Navigation
   nav: {
+    print: "Друк",
     printers: "Принтери",
     archives: "Архіви",
     queue: "Черга друку",
@@ -30,6 +31,78 @@ export default {
     logout: "Вийти",
     installApp: "Встановити додаток",
     installAppSuccess: "Bambuddy встановлено",
+  },
+
+  // One-click print flow (docs/auto-print-pipeline-spec.md)
+  print: {
+    title: "Почати новий друк",
+    subtitle: "Завантажте файл, оберіть філамент, налаштуйте параметри та почніть друк.",
+    dropzone: {
+      title: "Оберіть файл або перетягніть сюди",
+      supports: "Підтримує .gcode, .3mf, .stl, .obj, .amf",
+      chooseFile: "Обрати файл",
+      noFileSelected: "Файл не вибрано",
+    },
+    filament: {
+      title: "Філамент",
+      subtitle: "Оберіть тип і колір філаменту, який ви використовуєте.",
+      typeLabel: "Тип",
+      colorLabel: "Колір",
+      noneLoaded: "Жоден принтер не має завантаженого філаменту",
+      noColors: "Кольори не завантажено",
+    },
+    options: {
+      title: "Параметри друку",
+      quality: "Якість",
+      layerHeight: "Висота шару",
+    },
+    advanced: {
+      title: "Розширені налаштування",
+      autoOrient: "Автоматично орієнтувати об'єкти",
+      autoArrange: "Автоматично розмістити на столі",
+      printerOverride: "Принтер",
+      printerAuto: "Автоматичний вибір",
+    },
+    actions: {
+      print: "Друкувати",
+      starting: "Запускається…",
+    },
+    errors: {
+      noFile: "Оберіть файл для друку.",
+      noFilament: "Оберіть тип філаменту.",
+      optionsLoadFailed: "Не вдалося завантажити філамент, завантажений у ваші принтери.",
+    },
+    status: {
+      stage: {
+        upload: "Вивантаження",
+        analyse: "Аналіз",
+        printer: "Принтер",
+        slice: "Нарізка",
+        queued: "У черзі",
+      },
+      retry: "Повторити",
+      failedGeneric: "Під час запуску цього друку щось пішло не так.",
+      queuedSuccess: "Додано до черги друку.",
+      viewQueue: "Переглянути чергу",
+    },
+    summary: {
+      title: "Підсумок друку",
+      infoTooltip: "Заповнюється автоматично під час підготовки друку.",
+      noPreview: "Попереднього перегляду ще немає",
+      noPreviewAvailable: "Попередній перегляд для цього файлу недоступний",
+      file: "Файл",
+      filament: "Філамент",
+      color: "Колір",
+      estimatedTime: "Орієнтовний час друку",
+      filamentUsage: "Витрата філаменту",
+      layerHeight: "Висота шару",
+      printer: "Принтер",
+    },
+    printerStatus: {
+      title: "Стан принтера",
+      online: "Онлайн",
+      offline: "Не в мережі",
+    },
   },
 
   // Common

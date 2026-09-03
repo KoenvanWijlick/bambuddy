@@ -1,5 +1,6 @@
 export default {
   nav: {
+    print: "Печать",
     printers: "Принтеры",
     archives: "Архив",
     queue: "Очередь печати",
@@ -29,6 +30,76 @@ export default {
     logout: "Выйти",
     installApp: "Установить приложение",
     installAppSuccess: "Bambuddy установлен",
+  },
+  print: {
+    title: "Начать новую печать",
+    subtitle: "Загрузите файл, выберите филамент, настройте параметры и начните печать.",
+    dropzone: {
+      title: "Выберите файл или перетащите его сюда",
+      supports: "Поддерживаются .gcode, .3mf, .stl, .obj, .amf",
+      chooseFile: "Выбрать файл",
+      noFileSelected: "Файл не выбран",
+    },
+    filament: {
+      title: "Филамент",
+      subtitle: "Выберите тип и цвет используемого филамента.",
+      typeLabel: "Тип",
+      colorLabel: "Цвет",
+      noneLoaded: "Ни в одном принтере не загружен филамент",
+      noColors: "Цвета не загружены",
+    },
+    options: {
+      title: "Параметры печати",
+      quality: "Качество",
+      layerHeight: "Высота слоя",
+    },
+    advanced: {
+      title: "Расширенные настройки",
+      autoOrient: "Автоматически ориентировать объекты",
+      autoArrange: "Автоматически разместить на столе",
+      printerOverride: "Принтер",
+      printerAuto: "Автовыбор",
+    },
+    actions: {
+      print: "Печать",
+      starting: "Запуск…",
+    },
+    errors: {
+      noFile: "Выберите файл для печати.",
+      noFilament: "Выберите тип филамента.",
+      optionsLoadFailed: "Не удалось загрузить филамент, загруженный в ваши принтеры.",
+    },
+    status: {
+      stage: {
+        upload: "Загрузка",
+        analyse: "Анализ",
+        printer: "Принтер",
+        slice: "Нарезка",
+        queued: "В очереди",
+      },
+      retry: "Повторить",
+      failedGeneric: "Что-то пошло не так при запуске этой печати.",
+      queuedSuccess: "Добавлено в очередь печати.",
+      viewQueue: "Открыть очередь",
+    },
+    summary: {
+      title: "Сводка печати",
+      infoTooltip: "Заполняется автоматически по мере подготовки печати.",
+      noPreview: "Пока нет предпросмотра",
+      noPreviewAvailable: "Предпросмотр для этого файла недоступен",
+      file: "Файл",
+      filament: "Филамент",
+      color: "Цвет",
+      estimatedTime: "Расчётное время печати",
+      filamentUsage: "Расход филамента",
+      layerHeight: "Высота слоя",
+      printer: "Принтер",
+    },
+    printerStatus: {
+      title: "Состояние принтера",
+      online: "В сети",
+      offline: "Не в сети",
+    },
   },
   common: {
     plusNMore: 'ещё {{count}}',

@@ -1,6 +1,7 @@
 export default {
   // Navigation
   nav: {
+    print: '印刷',
     printers: 'プリンター',
     archives: 'アーカイブ',
     queue: '印刷キュー',
@@ -30,6 +31,78 @@ export default {
     logout: 'ログアウト',
     installApp: 'アプリをインストール',
     installAppSuccess: 'Bambuddyをインストールしました',
+  },
+
+  // One-click print flow (docs/auto-print-pipeline-spec.md)
+  print: {
+    title: '新しい印刷を開始',
+    subtitle: 'ファイルをアップロードし、フィラメントを選び、設定を調整して印刷を開始します。',
+    dropzone: {
+      title: 'ファイルを選択またはドラッグ＆ドロップ',
+      supports: '.gcode, .3mf, .stl, .obj, .amf に対応',
+      chooseFile: 'ファイルを選択',
+      noFileSelected: 'ファイルが選択されていません',
+    },
+    filament: {
+      title: 'フィラメント',
+      subtitle: '使用するフィラメントの種類と色を選択してください。',
+      typeLabel: '種類',
+      colorLabel: '色',
+      noneLoaded: 'どのプリンターにもフィラメントが読み込まれていません',
+      noColors: '色が読み込まれていません',
+    },
+    options: {
+      title: '印刷オプション',
+      quality: '品質',
+      layerHeight: 'レイヤー高さ',
+    },
+    advanced: {
+      title: '詳細設定',
+      autoOrient: 'オブジェクトの向きを自動で調整',
+      autoArrange: 'プレート上に自動配置',
+      printerOverride: 'プリンター',
+      printerAuto: '自動選択',
+    },
+    actions: {
+      print: '印刷',
+      starting: '開始しています…',
+    },
+    errors: {
+      noFile: '印刷するファイルを選択してください。',
+      noFilament: 'フィラメントの種類を選択してください。',
+      optionsLoadFailed: 'プリンターに読み込まれているフィラメントを取得できませんでした。',
+    },
+    status: {
+      stage: {
+        upload: 'アップロード',
+        analyse: '解析',
+        printer: 'プリンター',
+        slice: 'スライス',
+        queued: 'キュー中',
+      },
+      retry: '再試行',
+      failedGeneric: 'この印刷の開始中に問題が発生しました。',
+      queuedSuccess: '印刷キューに追加しました。',
+      viewQueue: 'キューを表示',
+    },
+    summary: {
+      title: '印刷概要',
+      infoTooltip: '印刷の準備が進むと自動的に入力されます。',
+      noPreview: 'プレビューはまだありません',
+      noPreviewAvailable: 'このファイルのプレビューは利用できません',
+      file: 'ファイル',
+      filament: 'フィラメント',
+      color: '色',
+      estimatedTime: '予想印刷時間',
+      filamentUsage: 'フィラメント使用量',
+      layerHeight: 'レイヤー高さ',
+      printer: 'プリンター',
+    },
+    printerStatus: {
+      title: 'プリンターステータス',
+      online: 'オンライン',
+      offline: 'オフライン',
+    },
   },
 
   // Common
